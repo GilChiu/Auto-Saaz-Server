@@ -1,18 +1,10 @@
-{
-  "name": "autosaaz-server",
-  "type": "web",
-  "env": "node",
-  "buildCommand": "npm install && npm run build",
-  "startCommand": "npm start",
-  "healthCheckPath": "/health",
-  "envVars": [
-    {
-      "key": "NODE_ENV",
-      "value": "production"
-    },
-    {
-      "key": "PORT",
-      "generateValue": true
-    }
-  ]
-}
+services:
+  - type: web
+    name: autosaaz-server
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
