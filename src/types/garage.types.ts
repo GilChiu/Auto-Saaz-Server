@@ -58,50 +58,44 @@ export interface BusinessDetails {
 }
 
 /**
- * Complete Garage Profile
+ * Complete Garage Profile (matches database schema with snake_case)
  */
 export interface GarageProfile {
   id: string;
-  userId: string;
+  user_id: string;
   
   // Personal Information
-  fullName: string;
+  full_name: string;
   email: string;
-  phoneNumber: string;
+  phone_number: string;
   
   // Business Location
-  address: string;
-  street: string;
-  state: string;
-  location: string;
+  address?: string;
+  street?: string;
+  state?: string;
+  location?: string;
   coordinates?: {
     latitude: number;
     longitude: number;
   };
   
   // Business Details
-  companyLegalName: string;
-  emiratesIdUrl: string;
-  tradeLicenseNumber: string;
-  vatCertification?: string;
+  company_legal_name?: string;
+  emirates_id_url?: string;
+  trade_license_number?: string;
+  vat_certification?: string;
   
   // Status and Metadata
-  role: UserRole;
-  status: RegistrationStatus;
-  isEmailVerified: boolean;
-  isPhoneVerified: boolean;
-  emailVerifiedAt?: Date;
-  phoneVerifiedAt?: Date;
-  
-  // Security
-  failedLoginAttempts: number;
-  lockedUntil?: Date;
-  lastLoginAt?: Date;
-  lastLoginIp?: string;
+  role?: UserRole;
+  status?: RegistrationStatus;
+  is_email_verified?: boolean;
+  is_phone_verified?: boolean;
+  email_verified_at?: Date;
+  phone_verified_at?: Date;
   
   // Timestamps
-  createdAt: Date;
-  updatedAt: Date;
+  created_at?: Date;
+  updated_at?: Date;
 }
 
 /**

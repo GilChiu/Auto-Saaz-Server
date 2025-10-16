@@ -348,10 +348,10 @@ export class AuthService {
                 data: {
                     user: userWithoutPassword,
                     profile: profile ? {
-                        fullName: profile.fullName,
+                        fullName: profile.full_name,
                         email: profile.email,
-                        phoneNumber: profile.phoneNumber,
-                        companyLegalName: profile.companyLegalName,
+                        phoneNumber: profile.phone_number,
+                        companyLegalName: profile.company_legal_name,
                         status: profile.status,
                     } : null,
                     accessToken,
