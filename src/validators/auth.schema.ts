@@ -24,7 +24,7 @@ const phoneRegex = /^(\+971|971|0)?[1-9][0-9]{8}$/;
 const emiratesIdRegex = /^784-\d{4}-\d{7}-\d{1}$/;
 
 /**
- * Step 1: Personal Information Schema
+ * Step 1: Personal Information Schema (No Password - Registration happens after verification)
  */
 export const personalInfoSchema = z.object({
   fullName: z
@@ -57,24 +57,15 @@ export const personalInfoSchema = z.object({
       }
       return normalized;
     }),
-  
-  password: z
-    .string()
-    .min(env.PASSWORD_MIN_LENGTH, `Password must be at least ${env.PASSWORD_MIN_LENGTH} characters`)
-    .max(128, 'Password must not exceed 128 characters')
-    .regex(
-      passwordRegex,
-      'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
-    ),
 });
 
 /**
- * Step 2: Business Location Schema
+ * Step 2: Business Location Schema (No userId needed - using session)
  */
 export const businessLocationSchema = z.object({
-  userId: z
+  sessionId: z
     .string()
-    .uuid('Invalid user ID format'),
+    .min(1, 'Session ID is required'),
   
   address: z
     .string()
@@ -109,12 +100,12 @@ export const businessLocationSchema = z.object({
 });
 
 /**
- * Step 3: Business Details Schema
+ * Step 3: Business Details Schema (No userId needed - using session)
  */
 export const businessDetailsSchema = z.object({
-  userId: z
+  sessionId: z
     .string()
-    .uuid('Invalid user ID format'),
+    .min(1, 'Session ID is required'),
   
   companyLegalName: z
     .string()
@@ -142,24 +133,26 @@ export const businessDetailsSchema = z.object({
 });
 
 /**
- * Step 4: Verification Code Schema
+ * Step 4: Verification Code Schema (Final step - creates user after verification)
  */
 export const verificationCodeSchema = z.object({
+  sessionId: z
+    .string()
+    .min(1, 'Session ID is required'),
+  
   code: z
     .string()
     .length(env.OTP_LENGTH, `Verification code must be ${env.OTP_LENGTH} digits`)
     .regex(/^\d+$/, 'Verification code must contain only numbers'),
   
-  email: z
+  password: z
     .string()
-    .email('Invalid email address')
-    .toLowerCase()
-    .optional(),
-  
-  phoneNumber: z
-    .string()
-    .regex(phoneRegex, 'Invalid phone number')
-    .optional(),
+    .min(env.PASSWORD_MIN_LENGTH, `Password must be at least ${env.PASSWORD_MIN_LENGTH} characters`)
+    .max(128, 'Password must not exceed 128 characters')
+    .regex(
+      passwordRegex,
+      'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+    ),
 });
 
 /**
@@ -181,22 +174,10 @@ export const loginSchema = z.object({
  * Resend Verification Code Schema
  */
 export const resendCodeSchema = z.object({
-  email: z
+  sessionId: z
     .string()
-    .email('Invalid email address')
-    .toLowerCase()
-    .optional(),
-  
-  phoneNumber: z
-    .string()
-    .regex(phoneRegex, 'Invalid phone number')
-    .optional(),
-}).refine(
-  (data) => data.email || data.phoneNumber,
-  {
-    message: 'Either email or phone number is required',
-  }
-);
+    .min(1, 'Session ID is required'),
+});
 
 /**
  * Complete Registration Schema

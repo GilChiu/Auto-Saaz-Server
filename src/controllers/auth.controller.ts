@@ -12,17 +12,16 @@ import logger from '../config/logger';
 
 export class AuthController {
     /**
-     * Step 1: Register personal information
+     * Step 1: Collect personal information (NO password)
      * POST /api/auth/register/step1
      */
     registerStep1 = asyncHandler(async (req: Request, res: Response) => {
-        const { fullName, email, phoneNumber, password } = req.body;
+        const { fullName, email, phoneNumber } = req.body;
 
         const result = await authService.registerStep1({
             fullName,
             email,
             phoneNumber,
-            password,
         });
 
         if (!result.success) {
@@ -37,74 +36,54 @@ export class AuthController {
     });
 
     /**
-     * Step 2: Update business location
+     * Step 2: Collect business location
      * POST /api/auth/register/step2
      */
     registerStep2 = asyncHandler(async (req: Request, res: Response) => {
-        const { userId, address, street, state, location, coordinates } = req.body;
-
-        const result = await authService.registerStep2(userId, {
-            address,
-            street,
-            state,
-            location,
-            coordinates,
-        });
+        const result = await authService.registerStep2(req.body);
 
         if (!result.success) {
             return badRequestResponse(res, result.message);
         }
 
-        logger.info(`Step 2 registration completed for user: ${userId}`);
-        return successResponse(res, {}, result.message);
-    });
-
-    /**
-     * Step 3: Update business details
-     * POST /api/auth/register/step3
-     */
-    registerStep3 = asyncHandler(async (req: Request, res: Response) => {
-        const { userId, companyLegalName, emiratesIdUrl, tradeLicenseNumber, vatCertification } =
-            req.body;
-
-        const result = await authService.registerStep3(userId, {
-            companyLegalName,
-            emiratesIdUrl,
-            tradeLicenseNumber,
-            vatCertification,
-        });
-
-        if (!result.success) {
-            return badRequestResponse(res, result.message);
-        }
-
-        logger.info(`Step 3 registration completed for user: ${userId}`);
+        logger.info(`Step 2 registration completed for session: ${req.body.sessionId}`);
         return successResponse(res, result.data, result.message);
     });
 
     /**
-     * Step 4: Verify registration code
-     * POST /api/auth/verify
+     * Step 3: Collect business details and send verification
+     * POST /api/auth/register/step3
      */
-    verifyRegistration = asyncHandler(async (req: Request, res: Response) => {
-        const { code, email, phoneNumber } = req.body;
-
-        if (!code) {
-            return badRequestResponse(res, 'Verification code is required');
-        }
-
-        if (!email && !phoneNumber) {
-            return badRequestResponse(res, 'Email or phone number is required');
-        }
-
-        const result = await authService.verifyRegistration(code, email, phoneNumber);
+    registerStep3 = asyncHandler(async (req: Request, res: Response) => {
+        const result = await authService.registerStep3(req.body);
 
         if (!result.success) {
             return badRequestResponse(res, result.message);
         }
 
-        logger.info(`Verification successful for: ${email || phoneNumber}`);
-        return successResponse(res, {}, result.message);
+        logger.info(`Step 3 registration completed for session: ${req.body.sessionId}`);
+        return successResponse(res, result.data, result.message);
+    });
+
+    /**
+     * Step 4: Verify code, set password, CREATE USER (final step)
+     * POST /api/auth/verify
+     */
+    verifyRegistration = asyncHandler(async (req: Request, res: Response) => {
+        const { sessionId, code, password } = req.body;
+
+        if (!sessionId || !code || !password) {
+            return badRequestResponse(res, 'Session ID, verification code, and password are required');
+        }
+
+        const result = await authService.verifyRegistration(sessionId, code, password);
+
+        if (!result.success) {
+            return badRequestResponse(res, result.message);
+        }
+
+        logger.info(`Verification successful and user created for session: ${sessionId}`);
+        return successResponse(res, result.data, result.message);
     });
 
     /**
@@ -112,13 +91,13 @@ export class AuthController {
      * POST /api/auth/verify/resend
      */
     resendVerificationCode = asyncHandler(async (req: Request, res: Response) => {
-        const { email, phoneNumber } = req.body;
+        const { sessionId } = req.body;
 
-        if (!email && !phoneNumber) {
-            return badRequestResponse(res, 'Email or phone number is required');
+        if (!sessionId) {
+            return badRequestResponse(res, 'Session ID is required');
         }
 
-        const result = await authService.resendVerificationCode(email, phoneNumber);
+        const result = await authService.resendVerificationCode(sessionId);
 
         if (!result.success) {
             if (result.status === 404) {
@@ -127,7 +106,7 @@ export class AuthController {
             return badRequestResponse(res, result.message);
         }
 
-        logger.info(`Verification code resent to: ${email || phoneNumber}`);
+        logger.info(`Verification code resent for session: ${sessionId}`);
         return successResponse(res, {}, result.message);
     });
 

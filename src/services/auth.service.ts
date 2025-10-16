@@ -1,4 +1,5 @@
 import { UserModel, GarageModel } from '../models/user.model';
+import { RegistrationSessionModel } from '../models/registration.model';
 import { hashPassword, comparePassword, validatePasswordStrength } from '../utils/password';
 import { createToken, createRefreshToken, verifyToken } from './token.service';
 import verificationService from './verification.service';
@@ -39,7 +40,7 @@ export interface LoginResponse {
 
 export class AuthService {
     /**
-     * Step 1: Register personal information
+     * Step 1: Collect personal information (NO password, NO user creation)
      */
     async registerStep1(data: PersonalInfoInput): Promise<AuthResponse> {
         try {
@@ -53,68 +54,22 @@ export class AuthService {
                 };
             }
 
-            // Validate password strength
-            const passwordValidation = validatePasswordStrength(data.password);
-            if (!passwordValidation.isValid) {
-                return {
-                    success: false,
-                    message: passwordValidation.message!,
-                    status: 400,
-                };
-            }
-
-            // Hash password
-            const hashedPassword = await hashPassword(data.password);
-
-            // Create user
-            const user = await UserModel.createUser({
-                email: data.email,
-                password: hashedPassword,
-                role: UserRole.GARAGE_OWNER,
-            });
-
-            if (!user) {
-                return {
-                    success: false,
-                    message: 'Failed to create user',
-                    status: 500,
-                };
-            }
-
-            // Create initial garage profile with personal info
-            await GarageModel.createProfile(user.id, {
-                user_id: user.id,
-                full_name: data.fullName,
-                email: data.email,
-                phone_number: data.phoneNumber,
-                role: UserRole.GARAGE_OWNER,
-                status: RegistrationStatus.PENDING_VERIFICATION,
-                is_email_verified: false,
-                is_phone_verified: false,
-            });
-
-            // Generate verification code
-            const verification = await verificationService.createVerificationCode({
-                userId: user.id,
+            // Create registration session (temporary storage)
+            const { sessionId, expiresAt } = await RegistrationSessionModel.createSession({
+                fullName: data.fullName,
                 email: data.email,
                 phoneNumber: data.phoneNumber,
-                method: VerificationMethod.BOTH,
             });
 
-            // Send verification codes
-            await verificationService.sendEmailVerification(data.email, verification.code);
-            await verificationService.sendSMSVerification(data.phoneNumber, verification.code);
-
-            logger.info(`User registered (Step 1): ${data.email}`);
+            logger.info(`Registration Step 1 completed for: ${data.email}`);
 
             return {
                 success: true,
-                message: 'Registration successful. Please verify your email or phone number.',
+                message: 'Personal information saved. Please continue to business location.',
                 data: {
-                    userId: user.id,
-                    email: data.email,
-                    phoneNumber: data.phoneNumber,
-                    requiresVerification: true,
+                    sessionId,
+                    expiresAt,
+                    nextStep: 2,
                 },
                 status: 201,
             };
@@ -131,28 +86,29 @@ export class AuthService {
     /**
      * Step 2: Update business location
      */
-    async registerStep2(userId: string, data: BusinessLocationInput): Promise<AuthResponse> {
+    async registerStep2(data: BusinessLocationInput): Promise<AuthResponse> {
         try {
-            const user = await UserModel.getUserById(userId);
-            if (!user) {
+            // Get session
+            const session = await RegistrationSessionModel.getSession(data.sessionId);
+            if (!session) {
                 return {
                     success: false,
-                    message: 'User not found',
+                    message: 'Invalid or expired session',
                     status: 404,
                 };
             }
 
-            // Check if user is verified
-            if (user.status !== RegistrationStatus.VERIFIED && user.status !== RegistrationStatus.ACTIVE) {
+            // Check if Step 1 was completed
+            if (session.step_completed < 1) {
                 return {
                     success: false,
-                    message: 'Please verify your email or phone number first',
-                    status: 403,
+                    message: 'Please complete Step 1 first',
+                    status: 400,
                 };
             }
 
-            // Update garage profile with location info
-            await GarageModel.updateProfile(userId, {
+            // Update session with location data
+            const updated = await RegistrationSessionModel.updateLocationData(data.sessionId, {
                 address: data.address,
                 street: data.street,
                 state: data.state,
@@ -160,7 +116,15 @@ export class AuthService {
                 coordinates: data.coordinates,
             });
 
-            logger.info(`Business location updated for user: ${userId}`);
+            if (!updated) {
+                return {
+                    success: false,
+                    message: 'Failed to save business location',
+                    status: 500,
+                };
+            }
+
+            logger.info(`Business location updated for session: ${data.sessionId}`);
 
             return {
                 success: true,
@@ -181,68 +145,66 @@ export class AuthService {
     }
 
     /**
-     * Step 3: Update business details and complete registration
+     * Step 3: Update business details and send verification
      */
-    async registerStep3(userId: string, data: BusinessDetailsInput): Promise<AuthResponse> {
+    async registerStep3(data: BusinessDetailsInput): Promise<AuthResponse> {
         try {
-            const user = await UserModel.getUserById(userId);
-            if (!user) {
+            // Get session
+            const session = await RegistrationSessionModel.getSession(data.sessionId);
+            if (!session) {
                 return {
                     success: false,
-                    message: 'User not found',
+                    message: 'Invalid or expired session',
                     status: 404,
                 };
             }
 
-            // Check if user is verified
-            if (user.status !== RegistrationStatus.VERIFIED && user.status !== RegistrationStatus.ACTIVE) {
+            // Check if Step 2 was completed
+            if (session.step_completed < 2) {
                 return {
                     success: false,
-                    message: 'Please verify your email or phone number first',
-                    status: 403,
+                    message: 'Please complete Step 2 first',
+                    status: 400,
                 };
             }
 
-            // Update garage profile with business details
-            await GarageModel.updateProfile(userId, {
-                company_legal_name: data.companyLegalName,
-                emirates_id_url: data.emiratesIdUrl,
-                trade_license_number: data.tradeLicenseNumber,
-                vat_certification: data.vatCertification,
-                status: RegistrationStatus.ACTIVE, // Mark as fully registered
+            // Update session with business data
+            const updated = await RegistrationSessionModel.updateBusinessData(data.sessionId, {
+                companyLegalName: data.companyLegalName,
+                emiratesIdUrl: data.emiratesIdUrl,
+                tradeLicenseNumber: data.tradeLicenseNumber,
+                vatCertification: data.vatCertification,
             });
 
-            // Update user status to ACTIVE
-            await UserModel.updateUser(userId, {
-                status: RegistrationStatus.ACTIVE,
+            if (!updated) {
+                return {
+                    success: false,
+                    message: 'Failed to save business details',
+                    status: 500,
+                };
+            }
+
+            // Generate and send OTP to the user's email and phone
+            const { code } = await verificationService.createVerificationCode({
+                email: session.email,
+                phoneNumber: session.phone_number,
+                method: VerificationMethod.BOTH,
             });
 
-            // Get updated profile
-            const profile = await GarageModel.getProfileByUserId(userId);
+            // Send verification code via email and SMS
+            await Promise.all([
+                verificationService.sendEmailVerification(session.email, code),
+                verificationService.sendSMSVerification(session.phone_number, code),
+            ]);
 
-            // Generate tokens for automatic login
-            const accessToken = createToken(user.id, user.email, user.role);
-            const refreshToken = createRefreshToken(user.id);
-
-            // Remove sensitive data
-            const { password: _, ...userWithoutPassword } = user;
-
-            logger.info(`Business details updated and registration completed for user: ${userId}`);
+            logger.info(`Business details updated and OTP sent for session: ${data.sessionId}`);
 
             return {
                 success: true,
-                message: 'Registration completed successfully! Welcome to AutoSaaz.',
+                message: 'Business details saved. Verification code sent to your email and phone.',
                 data: {
-                    user: userWithoutPassword,
-                    profile: profile ? {
-                        fullName: profile.full_name,
-                        email: profile.email,
-                        phoneNumber: profile.phone_number,
-                        companyLegalName: profile.company_legal_name,
-                        status: profile.status,
-                    } : null,
-                    accessToken,
-                    refreshToken,
+                    nextStep: 4,
+                    message: 'Please verify your account with the code sent to complete registration',
                 },
                 status: 200,
             };
@@ -257,18 +219,38 @@ export class AuthService {
     }
 
     /**
-     * Step 4: Verify code and activate account
+     * Step 4: Verify code, set password, and CREATE USER (final step)
      */
     async verifyRegistration(
+        sessionId: string,
         code: string,
-        email?: string,
-        phoneNumber?: string
+        password: string
     ): Promise<AuthResponse> {
         try {
+            // Get session
+            const session = await RegistrationSessionModel.getSession(sessionId);
+            if (!session) {
+                return {
+                    success: false,
+                    message: 'Invalid or expired session',
+                    status: 404,
+                };
+            }
+
+            // Check if Step 3 was completed
+            if (session.step_completed < 3) {
+                return {
+                    success: false,
+                    message: 'Please complete all previous steps first',
+                    status: 400,
+                };
+            }
+
+            // Verify the code
             const verification = await verificationService.verifyCode({
                 code,
-                email,
-                phoneNumber,
+                email: session.email,
+                phoneNumber: session.phone_number,
             });
 
             if (!verification.success) {
@@ -279,36 +261,95 @@ export class AuthService {
                 };
             }
 
-            if (!verification.userId) {
+            // Validate password strength
+            const passwordValidation = validatePasswordStrength(password);
+            if (!passwordValidation.isValid) {
                 return {
                     success: false,
-                    message: 'Invalid verification code',
+                    message: passwordValidation.message!,
                     status: 400,
                 };
             }
 
-            // Update user status to verified
-            await UserModel.updateUser(verification.userId, {
-                status: RegistrationStatus.VERIFIED,
+            // Hash password
+            const hashedPassword = await hashPassword(password);
+
+            // NOW Create the user (after verification)
+            const user = await UserModel.createUser({
+                email: session.email,
+                password: hashedPassword,
+                role: UserRole.GARAGE_OWNER,
             });
 
-            // Update profile verification status
-            const profile = await GarageModel.getProfileByUserId(verification.userId);
-            if (profile) {
-                await GarageModel.updateProfile(verification.userId, {
-                    is_email_verified: email ? true : profile.is_email_verified,
-                    is_phone_verified: phoneNumber ? true : profile.is_phone_verified,
-                    email_verified_at: email ? new Date() : profile.email_verified_at,
-                    phone_verified_at: phoneNumber ? new Date() : profile.phone_verified_at,
-                    status: RegistrationStatus.ACTIVE,
-                });
+            if (!user) {
+                return {
+                    success: false,
+                    message: 'Failed to create user',
+                    status: 500,
+                };
             }
 
-            logger.info(`User verified: ${verification.userId}`);
+            // Update user status to ACTIVE (skip PENDING_VERIFICATION since already verified)
+            await UserModel.updateUser(user.id, {
+                status: RegistrationStatus.ACTIVE,
+            });
+
+            // Create garage profile with all collected data
+            await GarageModel.createProfile(user.id, {
+                user_id: user.id,
+                full_name: session.full_name,
+                email: session.email,
+                phone_number: session.phone_number,
+                address: session.address,
+                street: session.street,
+                state: session.state,
+                location: session.location,
+                coordinates: session.coordinates,
+                company_legal_name: session.company_legal_name,
+                emirates_id_url: session.emirates_id_url,
+                trade_license_number: session.trade_license_number,
+                vat_certification: session.vat_certification,
+                role: UserRole.GARAGE_OWNER,
+                status: RegistrationStatus.ACTIVE,
+                is_email_verified: true,
+                is_phone_verified: true,
+                email_verified_at: new Date(),
+                phone_verified_at: new Date(),
+            });
+
+            // Delete the registration session
+            await RegistrationSessionModel.deleteSession(sessionId);
+
+            // Get created profile
+            const profile = await GarageModel.getProfileByUserId(user.id);
+
+            // Generate tokens for automatic login
+            const accessToken = createToken(user.id, user.email, user.role);
+            const refreshToken = createRefreshToken(user.id);
+
+            // Remove sensitive data
+            const { password: _, ...userWithoutPassword } = user;
+
+            logger.info(`Registration completed and user created: ${session.email}`);
 
             return {
                 success: true,
-                message: 'Verification successful. Your account is now active.',
+                message: 'Verification successful! Welcome to AutoSaaz.',
+                data: {
+                    user: {
+                        ...userWithoutPassword,
+                        status: RegistrationStatus.ACTIVE,
+                    },
+                    profile: profile ? {
+                        fullName: profile.full_name,
+                        email: profile.email,
+                        phoneNumber: profile.phone_number,
+                        companyLegalName: profile.company_legal_name,
+                        status: profile.status,
+                    } : null,
+                    accessToken,
+                    refreshToken,
+                },
                 status: 200,
             };
         } catch (error: any) {
@@ -427,50 +468,39 @@ export class AuthService {
     /**
      * Resend verification code
      */
-    async resendVerificationCode(email?: string, phoneNumber?: string): Promise<AuthResponse> {
+    async resendVerificationCode(sessionId: string): Promise<AuthResponse> {
         try {
-            if (!email && !phoneNumber) {
+            // Get session
+            const session = await RegistrationSessionModel.getSession(sessionId);
+            if (!session) {
                 return {
                     success: false,
-                    message: 'Email or phone number is required',
-                    status: 400,
-                };
-            }
-
-            let user: User | null = null;
-            
-            if (email) {
-                user = await UserModel.getUserByEmail(email);
-            }
-
-            if (!user) {
-                return {
-                    success: false,
-                    message: 'User not found',
+                    message: 'Invalid or expired session',
                     status: 404,
                 };
             }
 
-            const method = email && phoneNumber 
-                ? VerificationMethod.BOTH 
-                : email 
-                ? VerificationMethod.EMAIL 
-                : VerificationMethod.PHONE;
+            // Check if Step 3 was completed
+            if (session.step_completed < 3) {
+                return {
+                    success: false,
+                    message: 'Please complete all steps before requesting verification code',
+                    status: 400,
+                };
+            }
 
+            // Resend verification code
             const verification = await verificationService.resendCode({
-                email,
-                phoneNumber,
-                method,
+                email: session.email,
+                phoneNumber: session.phone_number,
+                method: VerificationMethod.BOTH,
             });
 
-            if (email) {
-                await verificationService.sendEmailVerification(email, verification.code);
-            }
-            if (phoneNumber) {
-                await verificationService.sendSMSVerification(phoneNumber, verification.code);
-            }
+            // Send verification codes
+            await verificationService.sendEmailVerification(session.email, verification.code);
+            await verificationService.sendSMSVerification(session.phone_number, verification.code);
 
-            logger.info(`Verification code resent to: ${email || phoneNumber}`);
+            logger.info(`Verification code resent for session: ${sessionId}`);
 
             return {
                 success: true,
