@@ -103,6 +103,49 @@ CREATE INDEX IF NOT EXISTS idx_verification_codes_phone ON verification_codes(ph
 CREATE INDEX IF NOT EXISTS idx_verification_codes_expires ON verification_codes(expires_at);
 
 -- ============================================================
+-- TABLE: registration_sessions
+-- Description: Temporary storage for multi-step registration data
+-- Note: Sessions expire after 24 hours. User is only created after verification.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS registration_sessions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id VARCHAR(255) UNIQUE NOT NULL,
+  
+  -- Step 1: Personal Information
+  full_name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  phone_number VARCHAR(20) NOT NULL,
+  
+  -- Step 2: Business Location
+  address TEXT,
+  street VARCHAR(255),
+  state VARCHAR(100),
+  location VARCHAR(255),
+  coordinates JSONB,
+  
+  -- Step 3: Business Details
+  company_legal_name VARCHAR(255),
+  emirates_id_url TEXT,
+  trade_license_number VARCHAR(100),
+  vat_certification VARCHAR(100),
+  
+  -- Progress tracking
+  step_completed INTEGER DEFAULT 1,
+  
+  -- Expiry
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  
+  -- Timestamps
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indexes for faster lookups
+CREATE INDEX IF NOT EXISTS idx_registration_sessions_session_id ON registration_sessions(session_id);
+CREATE INDEX IF NOT EXISTS idx_registration_sessions_email ON registration_sessions(email);
+CREATE INDEX IF NOT EXISTS idx_registration_sessions_expires ON registration_sessions(expires_at);
+
+-- ============================================================
 -- TABLE: file_uploads
 -- Description: Track all file uploads (Emirates ID, documents, etc.)
 -- ============================================================
@@ -148,6 +191,13 @@ CREATE TRIGGER update_garage_profiles_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+-- Trigger for registration_sessions table
+DROP TRIGGER IF EXISTS update_registration_sessions_updated_at ON registration_sessions;
+CREATE TRIGGER update_registration_sessions_updated_at
+  BEFORE UPDATE ON registration_sessions
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS) Policies
 -- ============================================================
@@ -156,6 +206,7 @@ CREATE TRIGGER update_garage_profiles_updated_at
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE garage_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE verification_codes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE registration_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE file_uploads ENABLE ROW LEVEL SECURITY;
 
 -- Users can read their own data
@@ -187,6 +238,9 @@ CREATE POLICY "Service role full access profiles" ON garage_profiles
   FOR ALL USING (auth.role() = 'service_role');
 
 CREATE POLICY "Service role full access codes" ON verification_codes
+  FOR ALL USING (auth.role() = 'service_role');
+
+CREATE POLICY "Service role full access registration_sessions" ON registration_sessions
   FOR ALL USING (auth.role() = 'service_role');
 
 CREATE POLICY "Service role full access files" ON file_uploads
@@ -273,6 +327,26 @@ $$ LANGUAGE plpgsql;
 -- Example: SELECT cleanup_expired_verification_codes();
 
 -- ============================================================
+-- CLEANUP: Remove expired registration sessions (run as cron)
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION cleanup_expired_registration_sessions()
+RETURNS INTEGER AS $$
+DECLARE
+  deleted_count INTEGER;
+BEGIN
+  DELETE FROM registration_sessions
+  WHERE expires_at < NOW();
+  
+  GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- You can set up a Supabase Edge Function or cron job to call this periodically
+-- Example: SELECT cleanup_expired_registration_sessions();
+
+-- ============================================================
 -- COMPLETED
 -- ============================================================
 
@@ -281,7 +355,7 @@ SELECT table_name
 FROM information_schema.tables 
 WHERE table_schema = 'public' 
   AND table_type = 'BASE TABLE'
-  AND table_name IN ('users', 'garage_profiles', 'verification_codes', 'file_uploads')
+  AND table_name IN ('users', 'garage_profiles', 'verification_codes', 'registration_sessions', 'file_uploads')
 ORDER BY table_name;
 
 -- Verify indexes were created
@@ -290,5 +364,5 @@ SELECT
   indexname
 FROM pg_indexes 
 WHERE schemaname = 'public'
-  AND tablename IN ('users', 'garage_profiles', 'verification_codes', 'file_uploads')
+  AND tablename IN ('users', 'garage_profiles', 'verification_codes', 'registration_sessions', 'file_uploads')
 ORDER BY tablename, indexname;
