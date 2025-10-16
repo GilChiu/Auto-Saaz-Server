@@ -135,6 +135,9 @@ export const businessDetailsSchema = z.object({
 /**
  * Step 4: Verification Code Schema (Final step - creates user after verification)
  */
+/**
+ * Step 4: Verification Code Schema (No Password - will be auto-generated)
+ */
 export const verificationCodeSchema = z.object({
   sessionId: z
     .string()
@@ -145,14 +148,8 @@ export const verificationCodeSchema = z.object({
     .length(env.OTP_LENGTH, `Verification code must be ${env.OTP_LENGTH} digits`)
     .regex(/^\d+$/, 'Verification code must contain only numbers'),
   
-  password: z
-    .string()
-    .min(env.PASSWORD_MIN_LENGTH, `Password must be at least ${env.PASSWORD_MIN_LENGTH} characters`)
-    .max(128, 'Password must not exceed 128 characters')
-    .regex(
-      passwordRegex,
-      'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
-    ),
+  // Note: Password is auto-generated and sent via email
+  // No password field needed from frontend
 });
 
 /**

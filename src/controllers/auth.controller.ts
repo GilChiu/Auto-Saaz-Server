@@ -66,17 +66,18 @@ export class AuthController {
     });
 
     /**
-     * Step 4: Verify code, set password, CREATE USER (final step)
+    /**
+     * Step 4: Verify registration code and create user (auto-generates password)
      * POST /api/auth/verify
      */
     verifyRegistration = asyncHandler(async (req: Request, res: Response) => {
-        const { sessionId, code, password } = req.body;
+        const { sessionId, code } = req.body;
 
-        if (!sessionId || !code || !password) {
-            return badRequestResponse(res, 'Session ID, verification code, and password are required');
+        if (!sessionId || !code) {
+            return badRequestResponse(res, 'Session ID and verification code are required');
         }
 
-        const result = await authService.verifyRegistration(sessionId, code, password);
+        const result = await authService.verifyRegistration(sessionId, code);
 
         if (!result.success) {
             return badRequestResponse(res, result.message);

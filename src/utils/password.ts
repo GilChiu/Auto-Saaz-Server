@@ -1,6 +1,37 @@
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import env from '../config/env';
 import logger from '../config/logger';
+
+/**
+ * Generate a secure random password
+ * @param length - Length of password (default: 12)
+ * @returns Generated password
+ */
+export const generateSecurePassword = (length: number = 12): string => {
+    const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // Removed I, O to avoid confusion
+    const lowercase = 'abcdefghijkmnopqrstuvwxyz'; // Removed l to avoid confusion
+    const numbers = '23456789'; // Removed 0, 1 to avoid confusion
+    const special = '@$!%*?&';
+    
+    const allChars = uppercase + lowercase + numbers + special;
+    
+    let password = '';
+    
+    // Ensure at least one character from each category
+    password += uppercase[crypto.randomInt(0, uppercase.length)];
+    password += lowercase[crypto.randomInt(0, lowercase.length)];
+    password += numbers[crypto.randomInt(0, numbers.length)];
+    password += special[crypto.randomInt(0, special.length)];
+    
+    // Fill the rest randomly
+    for (let i = password.length; i < length; i++) {
+        password += allChars[crypto.randomInt(0, allChars.length)];
+    }
+    
+    // Shuffle the password to avoid predictable patterns
+    return password.split('').sort(() => crypto.randomInt(0, 2) - 1).join('');
+};
 
 /**
  * Hash a plain text password

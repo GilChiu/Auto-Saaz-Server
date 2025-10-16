@@ -1,6 +1,6 @@
 import { UserModel, GarageModel } from '../models/user.model';
 import { RegistrationSessionModel } from '../models/registration.model';
-import { hashPassword, comparePassword, validatePasswordStrength } from '../utils/password';
+import { hashPassword, comparePassword, validatePasswordStrength, generateSecurePassword } from '../utils/password';
 import { createToken, createRefreshToken, verifyToken } from './token.service';
 import verificationService from './verification.service';
 import logger from '../config/logger';
@@ -219,12 +219,11 @@ export class AuthService {
     }
 
     /**
-     * Step 4: Verify code, set password, and CREATE USER (final step)
+     * Step 4: Verify code and CREATE USER (auto-generates password, final step)
      */
     async verifyRegistration(
         sessionId: string,
-        code: string,
-        password: string
+        code: string
     ): Promise<AuthResponse> {
         try {
             // Get session
@@ -261,18 +260,11 @@ export class AuthService {
                 };
             }
 
-            // Validate password strength
-            const passwordValidation = validatePasswordStrength(password);
-            if (!passwordValidation.isValid) {
-                return {
-                    success: false,
-                    message: passwordValidation.message!,
-                    status: 400,
-                };
-            }
-
-            // Hash password
-            const hashedPassword = await hashPassword(password);
+            // Auto-generate a secure password
+            const generatedPassword = generateSecurePassword(12);
+            
+            // Hash the generated password
+            const hashedPassword = await hashPassword(generatedPassword);
 
             // NOW Create the user (after verification)
             const user = await UserModel.createUser({
@@ -317,6 +309,9 @@ export class AuthService {
                 phone_verified_at: new Date(),
             });
 
+            // Send the auto-generated password via email
+            await this.sendWelcomeEmail(session.email, session.full_name, generatedPassword);
+            
             // Delete the registration session
             await RegistrationSessionModel.deleteSession(sessionId);
 
@@ -334,7 +329,7 @@ export class AuthService {
 
             return {
                 success: true,
-                message: 'Verification successful! Welcome to AutoSaaz.',
+                message: 'Registration successful! Your password has been sent to your email.',
                 data: {
                     user: {
                         ...userWithoutPassword,
@@ -349,6 +344,8 @@ export class AuthService {
                     } : null,
                     accessToken,
                     refreshToken,
+                    // In development, include password in response (remove in production)
+                    ...(process.env.NODE_ENV === 'development' && { generatedPassword }),
                 },
                 status: 200,
             };
@@ -515,6 +512,46 @@ export class AuthService {
                 status: 500,
             };
         }
+    }
+
+    /**
+     * Send welcome email with auto-generated password
+     * @private
+     */
+    private async sendWelcomeEmail(
+        email: string,
+        fullName: string,
+        password: string
+    ): Promise<void> {
+        // TODO: Integrate with email service (SendGrid, AWS SES, etc.)
+        // For now, just log it
+        logger.info(`[WELCOME EMAIL] Sending to ${email}`);
+        logger.info(`[PASSWORD] Auto-generated password for ${email}: ${password}`);
+        
+        console.log('\n' + '='.repeat(80));
+        console.log('🎉 WELCOME TO AUTOSAAZ!');
+        console.log('='.repeat(80));
+        console.log(`👤 Name: ${fullName}`);
+        console.log(`📧 Email: ${email}`);
+        console.log(`🔑 Password: ${password}`);
+        console.log('');
+        console.log('📌 IMPORTANT: Save this password securely!');
+        console.log('📌 You can change your password after logging in.');
+        console.log('='.repeat(80));
+        console.log('');
+        
+        // TODO: In production, send actual email:
+        // await emailService.send({
+        //     to: email,
+        //     subject: 'Welcome to AutoSaaz - Your Account Details',
+        //     html: `
+        //         <h1>Welcome to AutoSaaz, ${fullName}!</h1>
+        //         <p>Your account has been created successfully.</p>
+        //         <p><strong>Email:</strong> ${email}</p>
+        //         <p><strong>Password:</strong> ${password}</p>
+        //         <p>Please keep this password secure and change it after your first login.</p>
+        //     `
+        // });
     }
 }
 
