@@ -105,5 +105,67 @@ const corsOptions = {
 console.log('✅ CORS middleware configured and ready');
 console.log('');
 
-export const setupCors = cors(corsOptions);
-export const corsMiddleware = cors(corsOptions);
+// Custom middleware that ALWAYS sets CORS headers
+export const setupCors = (req: Request, res: Response, next: NextFunction) => {
+  const origin = req.headers.origin;
+  
+  console.log('');
+  console.log('━'.repeat(80));
+  console.log(`🔍 CUSTOM CORS MIDDLEWARE at ${new Date().toISOString()}`);
+  console.log('━'.repeat(80));
+  console.log('📱 Origin:', origin || '[NO ORIGIN]');
+  console.log('🔧 Method:', req.method);
+  console.log('🛣️  Path:', req.path);
+  
+  // Determine if origin is allowed
+  let isAllowed = false;
+  let reason = '';
+  
+  if (!origin) {
+    isAllowed = true;
+    reason = 'no origin (mobile/Postman)';
+  } else if (origin.endsWith('.vercel.app')) {
+    isAllowed = true;
+    reason = 'Vercel deployment';
+  } else if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+    isAllowed = true;
+    reason = 'localhost';
+  } else if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
+    isAllowed = true;
+    reason = 'in CORS_ORIGIN list';
+  }
+  
+  console.log('✅ Allowed:', isAllowed, reason ? `(${reason})` : '');
+  
+  if (isAllowed) {
+    // Set CORS headers explicitly
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    
+    console.log('📤 Headers set:');
+    console.log('   Access-Control-Allow-Origin:', origin || '*');
+    console.log('   Access-Control-Allow-Methods: GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    console.log('   Access-Control-Allow-Credentials: true');
+  } else {
+    console.log('❌ BLOCKED - origin not allowed');
+  }
+  
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    console.log('⚡ OPTIONS preflight - responding with 204');
+    console.log('━'.repeat(80));
+    console.log('');
+    res.status(204).end();
+    return;
+  }
+  
+  console.log('➡️  Continuing to route handler');
+  console.log('━'.repeat(80));
+  console.log('');
+  next();
+};
+
+export const corsMiddleware = setupCors;
