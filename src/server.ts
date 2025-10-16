@@ -13,10 +13,25 @@ const app = express();
 // Trust proxy - Required for Render and other reverse proxies
 app.set('trust proxy', 1);
 
-// Middleware
+// CORS Configuration - Allow Vercel frontends and local development
 app.use(cors({
-    origin: env.CORS_ORIGIN,
+    origin: [
+        // Production URLs
+        'https://auto-saaz-garage-client.vercel.app',
+        'https://auto-saaz-admin-client.vercel.app',
+        // Vercel preview deployments
+        /^https:\/\/auto-saaz-garage-client-.*\.vercel\.app$/,
+        /^https:\/\/auto-saaz-admin-client-.*\.vercel\.app$/,
+        // Local development
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:5174',
+    ],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 600, // Cache preflight for 10 minutes
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
