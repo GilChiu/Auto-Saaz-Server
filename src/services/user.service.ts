@@ -1,5 +1,5 @@
 import { supabase } from '../config/supabase';
-import { User } from '../models/user.model';
+import { User } from '../types/garage.types';
 import { Response } from 'express';
 
 export class UserService {
@@ -51,6 +51,6 @@ export class UserService {
             throw new Error(`Error uploading profile picture: ${error.message}`);
         }
 
-        return data.Key;
+        return data.path;
     }
 }

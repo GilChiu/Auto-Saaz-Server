@@ -3,4 +3,5 @@ import env from './env';
 
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
 
+export { supabase };
 export default supabase;

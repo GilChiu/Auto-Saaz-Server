@@ -11,4 +11,5 @@ const limiter = rateLimit({
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 
+export const setupRateLimit = limiter;
 export default limiter;

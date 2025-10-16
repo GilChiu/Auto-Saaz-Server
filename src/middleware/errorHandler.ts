@@ -13,4 +13,5 @@ const errorHandler = (err: any, req: Request, res: Response, next: NextFunction)
     });
 };
 
+export { errorHandler };
 export default errorHandler;

@@ -6,11 +6,15 @@ import { authGuard } from '../middleware/authGuard';
 const router = Router();
 const mobileController = new MobileController();
 
-// Example route for fetching mobile-specific data
-router.get('/data', authGuard, asyncHandler(mobileController.getMobileData));
+// Mobile registration and login (use auth routes instead)
+router.post('/register', mobileController.register);
+router.post('/login', mobileController.login);
 
-// Example route for submitting mobile-specific feedback
-router.post('/feedback', authGuard, asyncHandler(mobileController.submitFeedback));
+// File upload
+router.post('/upload', authGuard, mobileController.uploadFile);
+
+// User profile
+router.get('/profile', authGuard, mobileController.getUserProfile);
 
 // Add more mobile-specific routes as needed
 

@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Application } from 'express';
 import authRoutes from './auth.routes';
 import adminRoutes from './admin.routes';
 import mobileRoutes from './mobile.routes';
@@ -6,11 +6,12 @@ import filesRoutes from './files.routes';
 
 const router = Router();
 
-const setupRoutes = (app) => {
+const setupRoutes = (app: Application) => {
     app.use('/api/auth', authRoutes);
     app.use('/api/admin', adminRoutes);
     app.use('/api/mobile', mobileRoutes);
     app.use('/api/files', filesRoutes);
 };
 
+export { setupRoutes };
 export default setupRoutes;

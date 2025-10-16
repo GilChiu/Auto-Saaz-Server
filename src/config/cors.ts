@@ -16,4 +16,5 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 
+export const setupCors = cors(corsOptions);
 export const corsMiddleware = cors(corsOptions);

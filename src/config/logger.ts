@@ -13,4 +13,5 @@ const logger = createLogger({
   ],
 });
 
+export { logger };
 export default logger;

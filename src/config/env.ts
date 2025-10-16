@@ -77,4 +77,5 @@ const env = {
   SESSION_TIMEOUT_MINUTES: parseInt(process.env.SESSION_TIMEOUT_MINUTES || '60', 10),
 };
 
+export { env };
 export default env;

@@ -14,7 +14,7 @@ export const authGuard = (req: Request, res: Response, next: NextFunction) => {
             return res.status(401).json({ message: 'Token is not valid.' });
         }
 
-        req.user = decoded;
+        (req as any).user = decoded;
         next();
     });
 };

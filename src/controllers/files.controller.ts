@@ -22,22 +22,14 @@ export class FilesController {
 
     public getFile = asyncHandler(async (req: Request, res: Response) => {
         const { fileId } = req.params;
-        const file = await this.fileService.getFile(fileId);
+        const fileUrl = await this.fileService.getFileUrl(fileId);
 
-        if (!file) {
-            return res.status(404).json({ message: 'File not found' });
-        }
-
-        return res.status(200).json({ file });
+        return res.status(200).json({ fileUrl });
     });
 
     public deleteFile = asyncHandler(async (req: Request, res: Response) => {
         const { fileId } = req.params;
-        const result = await this.fileService.deleteFile(fileId);
-
-        if (!result) {
-            return res.status(404).json({ message: 'File not found' });
-        }
+        await this.fileService.deleteFile(fileId);
 
         return res.status(200).json({ message: 'File deleted successfully' });
     });

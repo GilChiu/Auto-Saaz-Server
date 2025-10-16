@@ -3,12 +3,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { Request, Response } from 'express';
 
 export class FileService {
-    async uploadFile(file: Express.Multer.File): Promise<string> {
-        const fileName = `${uuidv4()}-${file.originalname}`;
+    async uploadFile(fileName: string, fileBuffer: Buffer): Promise<string> {
+        const uniqueFileName = `${uuidv4()}-${fileName}`;
         const { data, error } = await supabase.storage
             .from('uploads')
-            .upload(fileName, file.buffer, {
-                contentType: file.mimetype,
+            .upload(uniqueFileName, fileBuffer, {
                 upsert: false,
             });
 
@@ -16,19 +15,15 @@ export class FileService {
             throw new Error(`File upload failed: ${error.message}`);
         }
 
-        return data.Key; // Return the file path or URL as needed
+        return data.path; // Return the file path
     }
 
     async getFileUrl(fileName: string): Promise<string> {
-        const { publicURL, error } = supabase.storage
+        const { data } = supabase.storage
             .from('uploads')
             .getPublicUrl(fileName);
 
-        if (error) {
-            throw new Error(`Failed to get file URL: ${error.message}`);
-        }
-
-        return publicURL;
+        return data.publicUrl;
     }
 
     async deleteFile(fileName: string): Promise<void> {

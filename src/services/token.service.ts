@@ -32,10 +32,10 @@ export const createToken = (userId: string, email: string, role: UserRole): stri
         };
 
         const token = jwt.sign(payload, env.JWT_SECRET, {
-            expiresIn: env.JWT_EXPIRES_IN,
+            expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'],
             issuer: 'autosaaz-api',
             audience: 'autosaaz-client',
-        });
+        } as jwt.SignOptions);
 
         return token;
     } catch (error) {
@@ -55,10 +55,10 @@ export const createRefreshToken = (userId: string): string => {
         };
 
         const token = jwt.sign(payload, env.JWT_SECRET, {
-            expiresIn: env.JWT_REFRESH_EXPIRES_IN,
+            expiresIn: env.JWT_REFRESH_EXPIRES_IN as jwt.SignOptions['expiresIn'],
             issuer: 'autosaaz-api',
             audience: 'autosaaz-client',
-        });
+        } as jwt.SignOptions);
 
         return token;
     } catch (error) {

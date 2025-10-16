@@ -12,8 +12,8 @@ router.get('/users', adminGuard, asyncHandler(adminController.getAllUsers));
 // Route to delete a user (admin only)
 router.delete('/users/:id', adminGuard, asyncHandler(adminController.deleteUser));
 
-// Route to update user role (admin only)
-router.put('/users/:id/role', adminGuard, asyncHandler(adminController.updateUserRole));
+// Route to update user (admin only)
+router.put('/users/:id', adminGuard, asyncHandler(adminController.updateUser));
 
 // Additional admin routes can be added here
 

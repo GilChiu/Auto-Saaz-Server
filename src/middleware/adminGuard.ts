@@ -1,7 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { AuthService } from '../services/auth.service';
-
-const authService = new AuthService();
+import { verifyToken } from '../services/token.service';
 
 export const adminGuard = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -10,12 +8,12 @@ export const adminGuard = async (req: Request, res: Response, next: NextFunction
             return res.status(401).json({ message: 'Unauthorized: No token provided' });
         }
 
-        const user = await authService.verifyToken(token);
-        if (!user || !user.isAdmin) {
+        const decoded = verifyToken(token);
+        if (!decoded || decoded.role !== 'admin') {
             return res.status(403).json({ message: 'Forbidden: You do not have access to this resource' });
         }
 
-        req.user = user; // Attach user information to the request
+        (req as any).user = decoded; // Attach user information to the request
         next();
     } catch (error) {
         console.error('Admin guard error:', error);
