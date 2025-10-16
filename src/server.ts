@@ -10,6 +10,9 @@ dotenv.config();
 // Initialize Express app
 const app = express();
 
+// Trust proxy - Required for Render and other reverse proxies
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors({
     origin: env.CORS_ORIGIN,
