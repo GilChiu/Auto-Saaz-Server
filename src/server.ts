@@ -25,10 +25,17 @@ const app = express();
 // Trust proxy - Required for Render and other reverse proxies
 app.set('trust proxy', 1);
 
-// CRITICAL: Use the new CORS configuration from config/cors.ts
+// CRITICAL: CORS MUST BE FIRST - before any other middleware
 console.log('🔒 Loading CORS configuration from config/cors.ts...');
 app.use(setupCors);
-app.options('*', setupCors); // Handle preflight requests
+
+// Explicit preflight handler for ALL routes
+app.options('*', (req, res) => {
+  console.log('⚡ OPTIONS preflight request received');
+  console.log('   Path:', req.path);
+  console.log('   Origin:', req.headers.origin || '[NO ORIGIN]');
+  res.status(204).end();
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

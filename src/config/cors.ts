@@ -95,9 +95,11 @@ const corsOptions = {
   },
   methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length', 'X-Request-Id'],
   credentials: true,
   preflightContinue: false,
   optionsSuccessStatus: 204,
+  maxAge: 86400, // 24 hours
 };
 
 console.log('✅ CORS middleware configured and ready');
