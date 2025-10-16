@@ -14,25 +14,48 @@ const app = express();
 app.set('trust proxy', 1);
 
 // CORS Configuration - Allow Vercel frontends and local development
-app.use(cors({
-    origin: [
-        // Production URLs
-        'https://auto-saaz-garage-client.vercel.app',
-        'https://auto-saaz-admin-client.vercel.app',
-        // Vercel preview deployments
-        /^https:\/\/auto-saaz-garage-client-.*\.vercel\.app$/,
-        /^https:\/\/auto-saaz-admin-client-.*\.vercel\.app$/,
-        // Local development
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'http://localhost:5174',
-    ],
+const corsOptions = {
+    origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+        // Allow requests with no origin (mobile apps, Postman, etc.)
+        if (!origin) return callback(null, true);
+        
+        const allowedOrigins = [
+            'https://auto-saaz-garage-client.vercel.app',
+            'https://auto-saaz-admin-client.vercel.app',
+            'http://localhost:3000',
+            'http://localhost:5173',
+            'http://localhost:5174',
+        ];
+        
+        const allowedPatterns = [
+            /^https:\/\/auto-saaz-garage-client-.*\.vercel\.app$/,
+            /^https:\/\/auto-saaz-admin-client-.*\.vercel\.app$/,
+        ];
+        
+        // Check exact matches
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        
+        // Check pattern matches
+        if (allowedPatterns.some(pattern => pattern.test(origin))) {
+            return callback(null, true);
+        }
+        
+        callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
-    maxAge: 600, // Cache preflight for 10 minutes
-}));
+    maxAge: 600,
+    optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly
+app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
