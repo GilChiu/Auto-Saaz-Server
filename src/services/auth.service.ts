@@ -77,14 +77,14 @@ export class AuthService {
 
             // Create initial garage profile with personal info
             await GarageModel.createProfile(user.id, {
-                userId: user.id,
-                fullName: data.fullName,
+                user_id: user.id,
+                full_name: data.fullName,
                 email: data.email,
-                phoneNumber: data.phoneNumber,
+                phone_number: data.phoneNumber,
                 role: UserRole.GARAGE_OWNER,
                 status: RegistrationStatus.PENDING_VERIFICATION,
-                isEmailVerified: false,
-                isPhoneVerified: false,
+                is_email_verified: false,
+                is_phone_verified: false,
             });
 
             // Generate verification code
@@ -178,10 +178,10 @@ export class AuthService {
 
             // Update garage profile with business details
             await GarageModel.updateProfile(userId, {
-                companyLegalName: data.companyLegalName,
-                emiratesIdUrl: data.emiratesIdUrl,
-                tradeLicenseNumber: data.tradeLicenseNumber,
-                vatCertification: data.vatCertification,
+                company_legal_name: data.companyLegalName,
+                emirates_id_url: data.emiratesIdUrl,
+                trade_license_number: data.tradeLicenseNumber,
+                vat_certification: data.vatCertification,
             });
 
             logger.info(`Business details updated for user: ${userId}`);
@@ -241,10 +241,10 @@ export class AuthService {
             const profile = await GarageModel.getProfileByUserId(verification.userId);
             if (profile) {
                 await GarageModel.updateProfile(verification.userId, {
-                    isEmailVerified: email ? true : profile.isEmailVerified,
-                    isPhoneVerified: phoneNumber ? true : profile.isPhoneVerified,
-                    emailVerifiedAt: email ? new Date() : profile.emailVerifiedAt,
-                    phoneVerifiedAt: phoneNumber ? new Date() : profile.phoneVerifiedAt,
+                    is_email_verified: email ? true : profile.is_email_verified,
+                    is_phone_verified: phoneNumber ? true : profile.is_phone_verified,
+                    email_verified_at: email ? new Date() : profile.email_verified_at,
+                    phone_verified_at: phoneNumber ? new Date() : profile.phone_verified_at,
                     status: RegistrationStatus.ACTIVE,
                 });
             }
