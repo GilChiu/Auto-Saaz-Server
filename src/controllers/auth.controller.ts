@@ -43,10 +43,6 @@ export class AuthController {
     registerStep2 = asyncHandler(async (req: Request, res: Response) => {
         const { userId, address, street, state, location, coordinates } = req.body;
 
-        if (!userId) {
-            return badRequestResponse(res, 'User ID is required');
-        }
-
         const result = await authService.registerStep2(userId, {
             address,
             street,
@@ -71,10 +67,6 @@ export class AuthController {
         const { userId, companyLegalName, emiratesIdUrl, tradeLicenseNumber, vatCertification } =
             req.body;
 
-        if (!userId) {
-            return badRequestResponse(res, 'User ID is required');
-        }
-
         const result = await authService.registerStep3(userId, {
             companyLegalName,
             emiratesIdUrl,
@@ -87,7 +79,7 @@ export class AuthController {
         }
 
         logger.info(`Step 3 registration completed for user: ${userId}`);
-        return successResponse(res, {}, result.message);
+        return successResponse(res, result.data, result.message);
     });
 
     /**

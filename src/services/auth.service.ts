@@ -142,6 +142,15 @@ export class AuthService {
                 };
             }
 
+            // Check if user is verified
+            if (user.status !== RegistrationStatus.VERIFIED && user.status !== RegistrationStatus.ACTIVE) {
+                return {
+                    success: false,
+                    message: 'Please verify your email or phone number first',
+                    status: 403,
+                };
+            }
+
             // Update garage profile with location info
             await GarageModel.updateProfile(userId, {
                 address: data.address,
@@ -156,6 +165,9 @@ export class AuthService {
             return {
                 success: true,
                 message: 'Business location saved successfully',
+                data: {
+                    nextStep: 3,
+                },
                 status: 200,
             };
         } catch (error: any) {
@@ -169,7 +181,7 @@ export class AuthService {
     }
 
     /**
-     * Step 3: Update business details
+     * Step 3: Update business details and complete registration
      */
     async registerStep3(userId: string, data: BusinessDetailsInput): Promise<AuthResponse> {
         try {
@@ -182,19 +194,56 @@ export class AuthService {
                 };
             }
 
+            // Check if user is verified
+            if (user.status !== RegistrationStatus.VERIFIED && user.status !== RegistrationStatus.ACTIVE) {
+                return {
+                    success: false,
+                    message: 'Please verify your email or phone number first',
+                    status: 403,
+                };
+            }
+
             // Update garage profile with business details
             await GarageModel.updateProfile(userId, {
                 company_legal_name: data.companyLegalName,
                 emirates_id_url: data.emiratesIdUrl,
                 trade_license_number: data.tradeLicenseNumber,
                 vat_certification: data.vatCertification,
+                status: RegistrationStatus.ACTIVE, // Mark as fully registered
             });
 
-            logger.info(`Business details updated for user: ${userId}`);
+            // Update user status to ACTIVE
+            await UserModel.updateUser(userId, {
+                status: RegistrationStatus.ACTIVE,
+            });
+
+            // Get updated profile
+            const profile = await GarageModel.getProfileByUserId(userId);
+
+            // Generate tokens for automatic login
+            const accessToken = createToken(user.id, user.email, user.role);
+            const refreshToken = createRefreshToken(user.id);
+
+            // Remove sensitive data
+            const { password: _, ...userWithoutPassword } = user;
+
+            logger.info(`Business details updated and registration completed for user: ${userId}`);
 
             return {
                 success: true,
-                message: 'Business details saved successfully',
+                message: 'Registration completed successfully! Welcome to AutoSaaz.',
+                data: {
+                    user: userWithoutPassword,
+                    profile: profile ? {
+                        fullName: profile.full_name,
+                        email: profile.email,
+                        phoneNumber: profile.phone_number,
+                        companyLegalName: profile.company_legal_name,
+                        status: profile.status,
+                    } : null,
+                    accessToken,
+                    refreshToken,
+                },
                 status: 200,
             };
         } catch (error: any) {

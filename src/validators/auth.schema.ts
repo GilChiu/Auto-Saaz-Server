@@ -72,6 +72,10 @@ export const personalInfoSchema = z.object({
  * Step 2: Business Location Schema
  */
 export const businessLocationSchema = z.object({
+  userId: z
+    .string()
+    .uuid('Invalid user ID format'),
+  
   address: z
     .string()
     .min(5, 'Address must be at least 5 characters')
@@ -108,6 +112,10 @@ export const businessLocationSchema = z.object({
  * Step 3: Business Details Schema
  */
 export const businessDetailsSchema = z.object({
+  userId: z
+    .string()
+    .uuid('Invalid user ID format'),
+  
   companyLegalName: z
     .string()
     .min(3, 'Company legal name must be at least 3 characters')
