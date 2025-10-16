@@ -28,7 +28,13 @@ export interface LoginResponse {
     user: Partial<User>;
     accessToken: string;
     refreshToken: string;
-    profile?: Partial<GarageProfile>;
+    profile?: {
+        fullName?: string;
+        email?: string;
+        phoneNumber?: string;
+        companyLegalName?: string;
+        status?: RegistrationStatus;
+    };
 }
 
 export class AuthService {
