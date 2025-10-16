@@ -85,7 +85,6 @@ export class AuthService {
                 status: RegistrationStatus.PENDING_VERIFICATION,
                 isEmailVerified: false,
                 isPhoneVerified: false,
-                failedLoginAttempts: 0,
             });
 
             // Generate verification code
