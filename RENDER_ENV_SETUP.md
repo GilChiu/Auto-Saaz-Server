@@ -1,148 +1,204 @@
 # Render Environment Variables Setup
 
-## Critical Issue: Supabase Connection Failed
+**Go to**: Render Dashboard → Your Service → Environment → Add Environment Variable
 
-Your deployment is failing because Supabase environment variables are not set in Render.
+---
 
-## Required Environment Variables
+## 🔴 REQUIRED VARIABLES
 
-Go to **Render Dashboard** → **Your Service** → **Environment** and add these:
+### Database (Supabase)
 
-### 1. Supabase Configuration (REQUIRED)
 ```bash
-SUPABASE_URL=https://your-project-id.supabase.co
-SUPABASE_ANON_KEY=your_anon_public_key_here
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_secret_key_here
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your_anon_key_here
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 ```
 
-**How to get these:**
-1. Go to https://supabase.com/dashboard
-2. Select your project (or create one)
-3. Go to **Settings** → **API**
-4. Copy:
-   - **Project URL** → `SUPABASE_URL`
-   - **anon/public** key → `SUPABASE_ANON_KEY`
-   - **service_role** key → `SUPABASE_SERVICE_ROLE_KEY`
+**Where to find**: Supabase Dashboard → Settings → API
 
-### 2. JWT Secret (REQUIRED)
+---
+
+### JWT Configuration
+
 ```bash
-JWT_SECRET=your_random_secret_here
+JWT_SECRET=your_very_long_random_secret_minimum_32_characters
+JWT_EXPIRES_IN=7d
+JWT_REFRESH_EXPIRES_IN=30d
 ```
 
-**Generate a secure secret:**
+**Generate JWT_SECRET**:
 ```bash
-# Run this locally to generate:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-### 3. Node Environment
+---
+
+### CORS Configuration
+
 ```bash
+CORS_ORIGIN=https://autosaaz-garage.vercel.app
+```
+
+**✅ IMPORTANT**: 
+- All `*.vercel.app` domains are **AUTOMATICALLY ALLOWED**
+- This includes ALL preview branches (no need to add them)
+- `localhost` is **AUTOMATICALLY ALLOWED** for development
+- Only add your custom production domains here
+
+**Examples**:
+```bash
+# Just main Vercel app (previews auto-allowed):
+CORS_ORIGIN=https://autosaaz-garage.vercel.app
+
+# With custom domain:
+CORS_ORIGIN=https://autosaaz-garage.vercel.app,https://autosaaz.com
+
+# Multiple domains (comma-separated, NO SPACES):
+CORS_ORIGIN=https://autosaaz-garage.vercel.app,https://autosaaz.com,https://www.autosaaz.com
+```
+
+---
+
+## 📋 QUICK COPY - Minimal Setup
+
+Copy this to Render (replace values):
+
+```bash
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+JWT_SECRET=generate_using_node_crypto_command_above
+JWT_EXPIRES_IN=7d
+JWT_REFRESH_EXPIRES_IN=30d
+CORS_ORIGIN=https://autosaaz-garage.vercel.app
 NODE_ENV=production
 ```
 
-### 4. Optional (with defaults)
+---
+
+## 🟡 OPTIONAL VARIABLES
+
+### Server Configuration
 ```bash
-# JWT Expiry
-JWT_EXPIRES_IN=7d
-JWT_REFRESH_EXPIRES_IN=30d
+PORT=3000
+NODE_ENV=production
+```
 
-# Security
-BCRYPT_ROUNDS=12
-REQUIRE_EMAIL_VERIFICATION=false
-MAX_LOGIN_ATTEMPTS=5
-ACCOUNT_LOCKOUT_DURATION_MINUTES=30
-
-# Rate Limiting
+### Rate Limiting
+```bash
 RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX_REQUESTS=100
 AUTH_RATE_LIMIT_WINDOW_MS=900000
 AUTH_RATE_LIMIT_MAX_REQUESTS=5
+```
 
-# OTP
+### OTP Configuration
+```bash
 OTP_EXPIRY_MINUTES=10
 OTP_LENGTH=6
 MAX_OTP_ATTEMPTS=3
-
-# CORS (update with your frontend URL)
-CORS_ORIGIN=https://your-frontend-app.com
 ```
 
-## Steps to Fix
-
-### Step 1: Add Environment Variables in Render
-1. Go to your Render service
-2. Click **Environment** (left sidebar)
-3. Click **Add Environment Variable**
-4. Add each variable from above
-5. Click **Save Changes**
-
-### Step 2: Setup Supabase Database
-1. Go to Supabase dashboard
-2. Open **SQL Editor**
-3. Copy the contents of `database/schema.sql` from this repo
-4. Paste and run it in SQL Editor
-5. Verify tables are created (users, garage_profiles, verification_codes, file_uploads)
-
-### Step 3: Create Storage Bucket
-1. In Supabase, go to **Storage**
-2. Click **New Bucket**
-3. Name: `garage-documents`
-4. Set to **Public** or configure policies
-5. Click **Create**
-
-### Step 4: Redeploy
-1. Go back to Render
-2. Click **Manual Deploy** → **Deploy latest commit**
-3. Wait for deployment to complete
-4. Check logs for success
-
-## Current Errors Explained
-
-### Error 1: Trust Proxy
-```
-ValidationError: The 'X-Forwarded-For' header is set but the Express 'trust proxy' setting is false
-```
-**Fix:** ✅ Already fixed in latest code (`app.set('trust proxy', 1)`)
-
-### Error 2: Supabase Connection
-```
-TypeError: fetch failed at UserModel.getUserByEmail
-```
-**Fix:** Add Supabase environment variables (see Step 1 above)
-
-## Verification
-
-After adding environment variables and redeploying, test the health endpoint:
-
+### File Storage
 ```bash
-curl https://autosaaz-server.onrender.com/health
+FILE_STORAGE_BUCKET=garage-documents
+MAX_FILE_SIZE_MB=5
+ALLOWED_FILE_TYPES=image/jpeg,image/png,image/jpg,application/pdf
 ```
 
-Expected response:
-```json
-{
-  "success": true,
-  "message": "AutoSaaz Server is running",
-  "timestamp": "2025-10-16T..."
-}
-```
-
-Then test registration:
+### Email (Gmail Example)
 ```bash
-curl -X POST https://autosaaz-server.onrender.com/api/auth/register/step1 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fullName": "Test User",
-    "email": "test@example.com",
-    "phoneNumber": "+971501234567",
-    "password": "Test@123456"
-  }'
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_gmail_app_password
+EMAIL_FROM=noreply@autosaaz.com
 ```
 
-## Need Help?
+### SMS
+```bash
+SMS_API_KEY=your_sms_provider_api_key
+SMS_SENDER_ID=AutoSaaz
+```
 
-If you still get errors after adding environment variables:
-1. Check Render logs for specific error messages
-2. Verify Supabase credentials are correct
-3. Ensure database schema is executed
-4. Check CORS_ORIGIN includes your frontend URL
+### Security
+```bash
+BCRYPT_ROUNDS=12
+MAX_LOGIN_ATTEMPTS=5
+ACCOUNT_LOCKOUT_DURATION_MINUTES=30
+PASSWORD_MIN_LENGTH=8
+REQUIRE_EMAIL_VERIFICATION=true
+SESSION_TIMEOUT_MINUTES=60
+```
+
+---
+
+## 🔧 How to Add in Render
+
+1. Go to Render Dashboard
+2. Select your service (autosaaz-server)
+3. Click **Environment** in sidebar
+4. Click **Add Environment Variable**
+5. Add each variable:
+   - Key: `SUPABASE_URL`
+   - Value: `https://...`
+6. Click **Save Changes**
+7. **Render will auto-redeploy** (takes 2-3 mins)
+
+---
+
+## ✅ What's Auto-Allowed (No Config Needed)
+
+- ✅ All `*.vercel.app` domains (including preview branches)
+- ✅ `localhost:*` (all ports)
+- ✅ `127.0.0.1:*` (all ports)
+
+**This means your Vercel preview branch works automatically!**
+
+---
+
+## 🚨 Troubleshooting CORS
+
+### Still getting CORS errors?
+
+1. **Check CORS_ORIGIN is set** in Render Environment tab
+2. **Wait for deployment** to complete (2-3 minutes)
+3. **Check Render logs** for CORS messages:
+   ```
+   CORS: Allowing Vercel preview deployment: https://...
+   ```
+4. **Hard refresh** frontend (Ctrl+Shift+R)
+
+### Common Mistakes
+
+❌ **DON'T** add spaces in CORS_ORIGIN:
+```bash
+# WRONG:
+CORS_ORIGIN=https://app1.com, https://app2.com
+
+# CORRECT:
+CORS_ORIGIN=https://app1.com,https://app2.com
+```
+
+❌ **DON'T** add Vercel preview URLs manually (they're auto-allowed):
+```bash
+# WRONG (unnecessary):
+CORS_ORIGIN=https://app-git-branch.vercel.app
+
+# CORRECT (Vercel is auto-allowed):
+CORS_ORIGIN=https://app.vercel.app
+```
+
+---
+
+## 📝 Notes
+
+- Changes to environment variables trigger auto-redeploy
+- Vercel preview deployments work without manual CORS config
+- Check Render logs for detailed CORS information
+- JWT_SECRET must be minimum 32 characters
+
+---
+
+**Last Updated**: October 2025  
+**Current CORS Logic**: Auto-allows *.vercel.app + localhost + CORS_ORIGIN list

@@ -2,7 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import logger from './logger';
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
+// Use CORS_ORIGIN from env (matches .env.example and other configs)
+const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || [];
 
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
