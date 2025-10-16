@@ -1,15 +1,39 @@
 import { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import logger from './logger';
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
 
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    // Allow requests with no origin (like mobile apps, Postman, etc.)
+    if (!origin) {
       callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+      return;
     }
+
+    // Check if origin is in the allowed list
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+      return;
+    }
+
+    // Allow all Vercel preview deployments (*.vercel.app)
+    if (origin.endsWith('.vercel.app')) {
+      logger.info(`CORS: Allowing Vercel preview deployment: ${origin}`);
+      callback(null, true);
+      return;
+    }
+
+    // Allow localhost for development
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      logger.info(`CORS: Allowing localhost: ${origin}`);
+      callback(null, true);
+      return;
+    }
+
+    logger.warn(`CORS: Blocked origin: ${origin}`);
+    callback(new Error('Not allowed by CORS'));
   },
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   credentials: true,
