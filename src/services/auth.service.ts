@@ -523,35 +523,39 @@ export class AuthService {
         fullName: string,
         password: string
     ): Promise<void> {
-        // TODO: Integrate with email service (SendGrid, AWS SES, etc.)
-        // For now, just log it
-        logger.info(`[WELCOME EMAIL] Sending to ${email}`);
-        logger.info(`[PASSWORD] Auto-generated password for ${email}: ${password}`);
-        
-        console.log('\n' + '='.repeat(80));
-        console.log('🎉 WELCOME TO AUTOSAAZ!');
-        console.log('='.repeat(80));
-        console.log(`👤 Name: ${fullName}`);
-        console.log(`📧 Email: ${email}`);
-        console.log(`🔑 Password: ${password}`);
-        console.log('');
-        console.log('📌 IMPORTANT: Save this password securely!');
-        console.log('📌 You can change your password after logging in.');
-        console.log('='.repeat(80));
-        console.log('');
-        
-        // TODO: In production, send actual email:
-        // await emailService.send({
-        //     to: email,
-        //     subject: 'Welcome to AutoSaaz - Your Account Details',
-        //     html: `
-        //         <h1>Welcome to AutoSaaz, ${fullName}!</h1>
-        //         <p>Your account has been created successfully.</p>
-        //         <p><strong>Email:</strong> ${email}</p>
-        //         <p><strong>Password:</strong> ${password}</p>
-        //         <p>Please keep this password secure and change it after your first login.</p>
-        //     `
-        // });
+        try {
+            // Import email service dynamically to avoid circular dependencies
+            const emailService = (await import('./email.service')).default;
+            
+            // Send welcome email with password
+            const sent = await emailService.sendWelcomeEmail(email, fullName, password);
+            
+            if (sent) {
+                logger.info(`✅ Welcome email sent to ${email}`);
+            } else {
+                logger.warn(`⚠️  Failed to send welcome email to ${email}`);
+            }
+            
+            // Also log for development/debugging
+            logger.info(`[WELCOME EMAIL] Sent to ${email}`);
+            logger.info(`[PASSWORD] Auto-generated password for ${email}: ${password}`);
+            
+            // Console output for development
+            console.log('\n' + '='.repeat(80));
+            console.log('🎉 WELCOME TO AUTOSAAZ!');
+            console.log('='.repeat(80));
+            console.log(`👤 Name: ${fullName}`);
+            console.log(`📧 Email: ${email}`);
+            console.log(`🔑 Password: ${password}`);
+            console.log('');
+            console.log('📌 IMPORTANT: Save this password securely!');
+            console.log('📌 You can change your password after logging in.');
+            console.log('='.repeat(80));
+            console.log('');
+        } catch (error) {
+            logger.error('Failed to send welcome email:', error);
+            // Don't throw - registration should succeed even if email fails
+        }
     }
 }
 

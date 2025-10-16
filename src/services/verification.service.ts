@@ -189,20 +189,26 @@ export class VerificationService {
     }
 
     /**
-     * Send verification code via email (placeholder - implement with nodemailer)
+     * Send verification code via email
      */
-    async sendEmailVerification(email: string, code: string): Promise<boolean> {
+    async sendEmailVerification(email: string, code: string, name?: string): Promise<boolean> {
         try {
-            // TODO: Implement email sending with nodemailer
-            // For now, just log it (in production, this should send actual email)
-            logger.info(`[EMAIL] Verification code for ${email}: ${code}`);
+            // Import email service dynamically to avoid circular dependencies
+            const emailService = (await import('./email.service')).default;
             
-            // In development, you might want to return the code
-            if (env.NODE_ENV === 'development') {
-                console.log(`📧 OTP for ${email}: ${code}`);
+            // Send OTP email
+            const sent = await emailService.sendOTPEmail(email, code, name);
+            
+            if (sent) {
+                logger.info(`✅ Verification email sent to ${email}`);
+            } else {
+                logger.warn(`⚠️  Failed to send verification email to ${email}`);
             }
             
-            return true;
+            // Also log for development/debugging
+            logger.info(`[EMAIL] Verification code for ${email}: ${code}`);
+            
+            return sent;
         } catch (error) {
             logger.error('VerificationService.sendEmailVerification error:', error);
             return false;
