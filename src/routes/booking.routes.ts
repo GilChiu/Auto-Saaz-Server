@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import bookingController from '../controllers/booking.controller';
+import appointmentController from '../controllers/appointment.controller';
 import { authGuard } from '../middleware/authGuard';
 
 const router = Router();
@@ -26,6 +27,13 @@ router.get('/stats', bookingController.getDashboardStats);
  * @access  Private (Garage Owners)
  */
 router.get('/booking-stats', bookingController.getBookingStats);
+
+/**
+ * @route   GET /api/dashboard/appointment-stats
+ * @desc    Get dashboard appointment statistics
+ * @access  Private (Garage Owners)
+ */
+router.get('/appointment-stats', appointmentController.getDashboardAppointmentStats);
 
 /**
  * Booking Routes
