@@ -63,7 +63,7 @@ export class VerificationService {
     }
 
     /**
-     * Verify code - TEMPORARY: Accept any 6-digit code
+     * Verify code
      */
     async verifyCode(data: {
         code: string;
@@ -97,6 +97,108 @@ export class VerificationService {
                 message: 'Verification successful (temporary mode)',
             };
 
+        } catch (error) {
+            logger.error('VerificationService.verifyCode error:', error);
+            return {
+                success: false,
+                message: 'Verification failed',
+            };
+        }
+    }
+                query.eq('email', data.email.toLowerCase());
+            }
+            if (data.phoneNumber) {
+                query.eq('phone_number', data.phoneNumber);
+            }
+
+            const { data: verificationCode, error } = await query.order('created_at', { ascending: false }).limit(1).single();
+
+            if (error || !verificationCode) {
+                return {
+                    success: false,
+                    message: 'Invalid verification code',
+                };
+            }
+
+            // Check if code is expired
+            const now = new Date();
+            const expiresAt = new Date(verificationCode.expires_at);
+            
+            if (now > expiresAt) {
+                return {
+                    success: false,
+                    message: 'Verification code has expired',
+                };
+            }
+
+            // Check attempts
+            if (verificationCode.attempts >= env.MAX_OTP_ATTEMPTS) {
+                return {
+                    success: false,
+                    message: 'Maximum verification attempts exceeded',
+                };
+            }
+
+            // Mark as used
+            await supabase
+                .from('verification_codes')
+                .update({ is_used: true })
+                .eq('id', verificationCode.id);
+
+            logger.info(`Verification code validated for ${data.email || data.phoneNumber}`);
+            
+            return {
+                success: true,
+                message: 'Verification successful',
+                userId: verificationCode.user_id,
+            };
+            */
+            }
+            if (data.phoneNumber) {
+                query.eq('phone_number', data.phoneNumber);
+            }
+
+            const { data: verificationCode, error } = await query.order('created_at', { ascending: false }).limit(1).single();
+
+            if (error || !verificationCode) {
+                return {
+                    success: false,
+                    message: 'Invalid verification code',
+                };
+            }
+
+            // Check if code is expired
+            const now = new Date();
+            const expiresAt = new Date(verificationCode.expires_at);
+            
+            if (now > expiresAt) {
+                return {
+                    success: false,
+                    message: 'Verification code has expired',
+                };
+            }
+
+            // Check attempts
+            if (verificationCode.attempts >= env.MAX_OTP_ATTEMPTS) {
+                return {
+                    success: false,
+                    message: 'Maximum verification attempts exceeded',
+                };
+            }
+
+            // Mark as used
+            await supabase
+                .from('verification_codes')
+                .update({ is_used: true })
+                .eq('id', verificationCode.id);
+
+            logger.info(`Verification code validated for ${data.email || data.phoneNumber}`);
+            
+            return {
+                success: true,
+                message: 'Verification successful',
+                userId: verificationCode.user_id,
+            };
         } catch (error) {
             logger.error('VerificationService.verifyCode error:', error);
             return {
