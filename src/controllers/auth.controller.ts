@@ -12,6 +12,78 @@ import logger from '../config/logger';
 
 export class AuthController {
     /**
+     * Simple registration endpoint for development/testing
+     * POST /api/auth/register
+     */
+    simpleRegister = asyncHandler(async (req: Request, res: Response) => {
+        const { fullName, email, phoneNumber, password } = req.body;
+
+        // Basic validation
+        if (!fullName || !email || !phoneNumber) {
+            return badRequestResponse(res, 'Full name, email, and phone number are required');
+        }
+
+        try {
+            // Step 1: Create session
+            const step1Result = await authService.registerStep1({
+                fullName,
+                email,
+                phoneNumber,
+            });
+
+            if (!step1Result.success) {
+                if (step1Result.status === 409) {
+                    return conflictResponse(res, step1Result.message);
+                }
+                return badRequestResponse(res, step1Result.message);
+            }
+
+            const sessionId = step1Result.data.sessionId;
+
+            // Step 2: Add dummy business location
+            const step2Result = await authService.registerStep2({
+                sessionId,
+                address: 'Dubai, UAE',
+                street: 'Main Street',
+                state: 'Dubai',
+                location: 'Dubai',
+                coordinates: { latitude: 25.2048, longitude: 55.2708 }
+            });
+
+            if (!step2Result.success) {
+                return badRequestResponse(res, step2Result.message);
+            }
+
+            // Step 3: Add dummy business details
+            const step3Result = await authService.registerStep3({
+                sessionId,
+                companyLegalName: fullName + ' Garage',
+                emiratesIdUrl: '',
+                tradeLicenseNumber: 'DEMO-' + Date.now(),
+                vatCertification: ''
+            });
+
+            if (!step3Result.success) {
+                return badRequestResponse(res, step3Result.message);
+            }
+
+            // Step 4: Auto-verify with dummy code (for development)
+            const verifyResult = await authService.verifyRegistration(sessionId, '123456');
+
+            if (!verifyResult.success) {
+                return badRequestResponse(res, verifyResult.message);
+            }
+
+            logger.info(`Simple registration completed for: ${email}`);
+            return createdResponse(res, verifyResult.data, 'Registration successful');
+
+        } catch (error: any) {
+            logger.error('Simple registration error:', error);
+            return badRequestResponse(res, 'Registration failed');
+        }
+    });
+
+    /**
      * Step 1: Collect personal information (NO password)
      * POST /api/auth/register/step1
      */

@@ -32,6 +32,13 @@ const authRateLimiter = rateLimit({
  * Registration Flow Routes
  */
 
+// Simple registration endpoint (for development/testing)
+router.post(
+    '/register',
+    authRateLimiter,
+    authController.simpleRegister
+);
+
 // Step 1: Personal Information
 router.post(
     '/register/step1',
