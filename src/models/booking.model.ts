@@ -84,14 +84,32 @@ export class BookingModel {
         garageId: string
     ): Promise<Booking | null> {
         try {
-            const { data, error } = await supabase
+            // Clean the booking ID (remove # prefix if present)
+            const cleanId = bookingId.replace('#', '');
+            
+            // First try to find by UUID (id field)
+            let { data, error } = await supabase
                 .from('bookings')
                 .select('*')
-                .eq('id', bookingId)
+                .eq('id', cleanId)
                 .eq('garage_id', garageId)
                 .single();
 
+            // If not found by UUID, try by booking_number
+            if (error && error.code === 'PGRST116') {
+                ({ data, error } = await supabase
+                    .from('bookings')
+                    .select('*')
+                    .eq('booking_number', cleanId)
+                    .eq('garage_id', garageId)
+                    .single());
+            }
+
             if (error) {
+                if (error.code === 'PGRST116') {
+                    logger.info(`Booking not found: ${cleanId} for garage: ${garageId}`);
+                    return null;
+                }
                 logger.error('Error fetching booking:', error);
                 return null;
             }

@@ -224,6 +224,68 @@ CREATE INDEX IF NOT EXISTS idx_bookings_service_type ON bookings(service_type);
 CREATE INDEX IF NOT EXISTS idx_bookings_created_at ON bookings(created_at);
 
 -- ============================================================
+-- TABLE: appointments
+-- Description: Customer appointments for garage services
+-- ============================================================
+CREATE TABLE IF NOT EXISTS appointments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  appointment_number VARCHAR(50) UNIQUE NOT NULL,
+  garage_owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  
+  -- Customer Information
+  customer_name VARCHAR(255) NOT NULL,
+  customer_phone VARCHAR(20) NOT NULL,
+  customer_email VARCHAR(255),
+  
+  -- Vehicle Information
+  vehicle_make VARCHAR(100),
+  vehicle_model VARCHAR(100),
+  vehicle_year INTEGER,
+  vehicle_plate_number VARCHAR(20),
+  
+  -- Service Information
+  service_type VARCHAR(100) NOT NULL,
+  service_description TEXT,
+  appointment_date TIMESTAMP WITH TIME ZONE NOT NULL,
+  scheduled_time VARCHAR(10), -- Time in HH:MM format
+  
+  -- Status and Priority
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show')),
+  priority VARCHAR(20) NOT NULL DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
+  
+  -- Duration and Cost
+  estimated_duration INTEGER, -- Duration in minutes
+  estimated_cost DECIMAL(10,2),
+  actual_cost DECIMAL(10,2),
+  
+  -- Assignment and Completion
+  assigned_technician VARCHAR(255),
+  completion_date TIMESTAMP WITH TIME ZONE,
+  
+  -- Notes
+  notes TEXT, -- Customer visible notes
+  internal_notes TEXT, -- Internal garage notes
+  
+  -- Timestamps
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indexes for faster lookups and filtering
+CREATE INDEX IF NOT EXISTS idx_appointments_garage_owner_id ON appointments(garage_owner_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
+CREATE INDEX IF NOT EXISTS idx_appointments_priority ON appointments(priority);
+CREATE INDEX IF NOT EXISTS idx_appointments_appointment_date ON appointments(appointment_date);
+CREATE INDEX IF NOT EXISTS idx_appointments_appointment_number ON appointments(appointment_number);
+CREATE INDEX IF NOT EXISTS idx_appointments_customer_phone ON appointments(customer_phone);
+CREATE INDEX IF NOT EXISTS idx_appointments_service_type ON appointments(service_type);
+CREATE INDEX IF NOT EXISTS idx_appointments_created_at ON appointments(created_at);
+CREATE INDEX IF NOT EXISTS idx_appointments_customer_name ON appointments(customer_name);
+CREATE INDEX IF NOT EXISTS idx_appointments_vehicle_make ON appointments(vehicle_make);
+CREATE INDEX IF NOT EXISTS idx_appointments_vehicle_model ON appointments(vehicle_model);
+CREATE INDEX IF NOT EXISTS idx_appointments_vehicle_plate ON appointments(vehicle_plate_number);
+
+-- ============================================================
 -- FUNCTIONS: Auto-update updated_at timestamp
 -- ============================================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -262,6 +324,13 @@ CREATE TRIGGER update_bookings_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+-- Trigger for appointments table
+DROP TRIGGER IF EXISTS update_appointments_updated_at ON appointments;
+CREATE TRIGGER update_appointments_updated_at
+  BEFORE UPDATE ON appointments
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS) Policies
 -- ============================================================
@@ -273,6 +342,7 @@ ALTER TABLE verification_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE registration_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE file_uploads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
 
 -- Users can read their own data
 CREATE POLICY "Users can read own data" ON users
@@ -325,6 +395,22 @@ CREATE POLICY "Users can delete own bookings" ON bookings
   FOR DELETE USING (auth.uid() = garage_id);
 
 CREATE POLICY "Service role full access bookings" ON bookings
+  FOR ALL USING (auth.role() = 'service_role');
+
+-- Appointments policies
+CREATE POLICY "Users can read own appointments" ON appointments
+  FOR SELECT USING (auth.uid() = garage_owner_id);
+
+CREATE POLICY "Users can create own appointments" ON appointments
+  FOR INSERT WITH CHECK (auth.uid() = garage_owner_id);
+
+CREATE POLICY "Users can update own appointments" ON appointments
+  FOR UPDATE USING (auth.uid() = garage_owner_id);
+
+CREATE POLICY "Users can delete own appointments" ON appointments
+  FOR DELETE USING (auth.uid() = garage_owner_id);
+
+CREATE POLICY "Service role full access appointments" ON appointments
   FOR ALL USING (auth.role() = 'service_role');
 
 -- ============================================================
@@ -436,7 +522,7 @@ SELECT table_name
 FROM information_schema.tables 
 WHERE table_schema = 'public' 
   AND table_type = 'BASE TABLE'
-  AND table_name IN ('users', 'garage_profiles', 'verification_codes', 'registration_sessions', 'file_uploads', 'bookings')
+  AND table_name IN ('users', 'garage_profiles', 'verification_codes', 'registration_sessions', 'file_uploads', 'bookings', 'appointments')
 ORDER BY table_name;
 
 -- Verify indexes were created
@@ -445,5 +531,5 @@ SELECT
   indexname
 FROM pg_indexes 
 WHERE schemaname = 'public'
-  AND tablename IN ('users', 'garage_profiles', 'verification_codes', 'registration_sessions', 'file_uploads', 'bookings')
+  AND tablename IN ('users', 'garage_profiles', 'verification_codes', 'registration_sessions', 'file_uploads', 'bookings', 'appointments')
 ORDER BY tablename, indexname;
