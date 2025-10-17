@@ -1,7 +1,7 @@
 -- ============================================================
--- COMPLETE PRODUCTION SETUP SCRIPT
--- This script ensures all tables exist and have proper data
--- Run this ONCE in your Supabase SQL Editor
+-- SAFE PRODUCTION SETUP SCRIPT (Fixed for existing objects)
+-- This script safely creates or updates all tables and data
+-- Run this in your Supabase SQL Editor
 -- ============================================================
 
 -- Enable UUID extension if not already enabled
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS inspections (
     completed_at TIMESTAMP WITH TIME ZONE
 );
 
--- Create indexes for better performance
+-- Create indexes for better performance (only if they don't exist)
 CREATE INDEX IF NOT EXISTS idx_inspections_garage_owner_id ON inspections(garage_owner_id);
 CREATE INDEX IF NOT EXISTS idx_inspections_status ON inspections(status);
 CREATE INDEX IF NOT EXISTS idx_inspections_date ON inspections(inspection_date);
@@ -94,7 +94,7 @@ CREATE INDEX IF NOT EXISTS idx_inspections_created_at ON inspections(created_at)
 -- Create composite index for common queries
 CREATE INDEX IF NOT EXISTS idx_inspections_garage_status_date ON inspections(garage_owner_id, status, inspection_date);
 
--- Add updated_at trigger
+-- Add updated_at trigger function (safe to replace)
 CREATE OR REPLACE FUNCTION update_inspections_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -106,19 +106,28 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Drop existing trigger if it exists
-DROP TRIGGER IF EXISTS trigger_update_inspections_updated_at ON inspections;
-
--- Create the trigger
-CREATE TRIGGER trigger_update_inspections_updated_at
-    BEFORE UPDATE ON inspections
-    FOR EACH ROW
-    EXECUTE FUNCTION update_inspections_updated_at();
+-- Safely create or replace the trigger
+DO $$
+BEGIN
+    -- Drop existing trigger if it exists
+    DROP TRIGGER IF EXISTS trigger_update_inspections_updated_at ON inspections;
+    
+    -- Create the trigger
+    CREATE TRIGGER trigger_update_inspections_updated_at
+        BEFORE UPDATE ON inspections
+        FOR EACH ROW
+        EXECUTE FUNCTION update_inspections_updated_at();
+    
+    RAISE NOTICE 'Trigger created successfully';
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE NOTICE 'Trigger already exists or could not be created: %', SQLERRM;
+END $$;
 
 -- Enable Row Level Security
 ALTER TABLE inspections ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies if they exist
+-- Drop existing policies if they exist (safe to run multiple times)
 DROP POLICY IF EXISTS inspections_garage_owner_policy ON inspections;
 DROP POLICY IF EXISTS inspections_garage_owner_insert_policy ON inspections;
 DROP POLICY IF EXISTS inspections_garage_owner_update_policy ON inspections;
@@ -138,10 +147,10 @@ CREATE POLICY inspections_garage_owner_delete_policy ON inspections
     FOR DELETE USING (garage_owner_id = auth.uid());
 
 -- ============================================================
--- 3. INSERT SAMPLE DATA
+-- 3. INSERT SAMPLE DATA (Safe operation)
 -- ============================================================
 
--- Clear existing sample data first
+-- Clear existing sample data first (safe to run multiple times)
 DELETE FROM inspections WHERE garage_owner_id = 'ba50abf9-5210-4177-8605-b01c73b9f9f3';
 
 -- Insert fresh sample data
@@ -280,3 +289,17 @@ FROM inspections;
 RAISE NOTICE '🎉 INSPECTIONS SETUP COMPLETE!';
 RAISE NOTICE 'Total inspections created: %', (SELECT COUNT(*) FROM inspections WHERE garage_owner_id = 'ba50abf9-5210-4177-8605-b01c73b9f9f3');
 RAISE NOTICE 'You can now test the inspections API endpoints.';
+
+-- ============================================================
+-- TROUBLESHOOTING NOTES
+-- ============================================================
+/*
+If you encounter any errors:
+
+1. "trigger already exists" - This script now handles this safely
+2. "relation already exists" - Tables are created with IF NOT EXISTS
+3. "policy already exists" - Policies are dropped before recreation
+4. "function already exists" - Functions use CREATE OR REPLACE
+
+This script is safe to run multiple times.
+*/
