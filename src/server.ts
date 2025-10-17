@@ -5,6 +5,7 @@ import { setupCors } from './config/cors';
 import authRoutes from './routes/auth.routes';
 import bookingRoutes from './routes/booking.routes';
 import appointmentRoutes from './routes/appointment.routes';
+import inspectionRoutes from './routes/inspection.routes';
 
 // Load environment variables FIRST
 dotenv.config();
@@ -47,6 +48,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/inspections', inspectionRoutes);
 app.use('/api/dashboard', bookingRoutes); // Dashboard stats use booking controller
 
 // 404 handler
