@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import authController from '../controllers/auth.controller';
+import passwordController from '../controllers/password.controller';
 import { validate } from '../middleware/validate';
 import {
     personalInfoSchema,
@@ -9,6 +10,7 @@ import {
     loginSchema,
     resendCodeSchema,
 } from '../validators/auth.schema';
+import { authGuard } from '../middleware/authGuard';
 import rateLimit from 'express-rate-limit';
 import env from '../config/env';
 
@@ -83,8 +85,42 @@ router.post(
 // Logout (client-side token removal)
 router.post('/logout', authController.logout);
 
+// Refresh access token
+router.post('/refresh', authController.refreshToken);
+
 // Get current authenticated user
-// TODO: Add authGuard middleware
-// router.get('/me', authGuard, authController.getCurrentUser);
+router.get('/me', authGuard, authController.getCurrentUser);
+
+/**
+ * Password Management Routes
+ */
+
+// Request password reset (forgot password)
+router.post(
+    '/password/forgot',
+    authRateLimiter,
+    passwordController.forgotPassword
+);
+
+// Verify reset code
+router.post(
+    '/password/verify-code',
+    authRateLimiter,
+    passwordController.verifyResetCode
+);
+
+// Reset password with code
+router.post(
+    '/password/reset',
+    authRateLimiter,
+    passwordController.resetPassword
+);
+
+// Change password (authenticated users)
+router.post(
+    '/password/change',
+    authGuard,
+    passwordController.changePassword
+);
 
 export default router;

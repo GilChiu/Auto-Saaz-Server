@@ -167,6 +167,63 @@ CREATE INDEX IF NOT EXISTS idx_file_uploads_user_id ON file_uploads(user_id);
 CREATE INDEX IF NOT EXISTS idx_file_uploads_type ON file_uploads(upload_type);
 
 -- ============================================================
+-- TABLE: bookings
+-- Description: Customer bookings for garage services
+-- ============================================================
+CREATE TABLE IF NOT EXISTS bookings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  booking_number VARCHAR(50) UNIQUE NOT NULL,
+  garage_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  
+  -- Customer Information
+  customer_name VARCHAR(255) NOT NULL,
+  customer_phone VARCHAR(20) NOT NULL,
+  customer_email VARCHAR(255),
+  
+  -- Service Information
+  service_type VARCHAR(50) NOT NULL,
+  service_description TEXT,
+  booking_date DATE NOT NULL,
+  scheduled_time VARCHAR(10),
+  
+  -- Vehicle Information
+  vehicle_make VARCHAR(100),
+  vehicle_model VARCHAR(100),
+  vehicle_year INTEGER,
+  vehicle_plate_number VARCHAR(20),
+  
+  -- Financial Information
+  estimated_cost DECIMAL(10,2),
+  actual_cost DECIMAL(10,2),
+  
+  -- Status Tracking
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show')),
+  payment_status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid', 'partial', 'refunded')),
+  completion_date TIMESTAMP WITH TIME ZONE,
+  
+  -- Assignment
+  assigned_technician VARCHAR(255),
+  
+  -- Notes
+  notes TEXT,
+  internal_notes TEXT,
+  
+  -- Timestamps
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indexes for faster lookups and filtering
+CREATE INDEX IF NOT EXISTS idx_bookings_garage_id ON bookings(garage_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
+CREATE INDEX IF NOT EXISTS idx_bookings_payment_status ON bookings(payment_status);
+CREATE INDEX IF NOT EXISTS idx_bookings_booking_date ON bookings(booking_date);
+CREATE INDEX IF NOT EXISTS idx_bookings_booking_number ON bookings(booking_number);
+CREATE INDEX IF NOT EXISTS idx_bookings_customer_phone ON bookings(customer_phone);
+CREATE INDEX IF NOT EXISTS idx_bookings_service_type ON bookings(service_type);
+CREATE INDEX IF NOT EXISTS idx_bookings_created_at ON bookings(created_at);
+
+-- ============================================================
 -- FUNCTIONS: Auto-update updated_at timestamp
 -- ============================================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -198,6 +255,13 @@ CREATE TRIGGER update_registration_sessions_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+-- Trigger for bookings table
+DROP TRIGGER IF EXISTS update_bookings_updated_at ON bookings;
+CREATE TRIGGER update_bookings_updated_at
+  BEFORE UPDATE ON bookings
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS) Policies
 -- ============================================================
@@ -208,6 +272,7 @@ ALTER TABLE garage_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE verification_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE registration_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE file_uploads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 
 -- Users can read their own data
 CREATE POLICY "Users can read own data" ON users
@@ -244,6 +309,22 @@ CREATE POLICY "Service role full access registration_sessions" ON registration_s
   FOR ALL USING (auth.role() = 'service_role');
 
 CREATE POLICY "Service role full access files" ON file_uploads
+  FOR ALL USING (auth.role() = 'service_role');
+
+-- Bookings policies
+CREATE POLICY "Users can read own bookings" ON bookings
+  FOR SELECT USING (auth.uid() = garage_id);
+
+CREATE POLICY "Users can create own bookings" ON bookings
+  FOR INSERT WITH CHECK (auth.uid() = garage_id);
+
+CREATE POLICY "Users can update own bookings" ON bookings
+  FOR UPDATE USING (auth.uid() = garage_id);
+
+CREATE POLICY "Users can delete own bookings" ON bookings
+  FOR DELETE USING (auth.uid() = garage_id);
+
+CREATE POLICY "Service role full access bookings" ON bookings
   FOR ALL USING (auth.role() = 'service_role');
 
 -- ============================================================
@@ -355,7 +436,7 @@ SELECT table_name
 FROM information_schema.tables 
 WHERE table_schema = 'public' 
   AND table_type = 'BASE TABLE'
-  AND table_name IN ('users', 'garage_profiles', 'verification_codes', 'registration_sessions', 'file_uploads')
+  AND table_name IN ('users', 'garage_profiles', 'verification_codes', 'registration_sessions', 'file_uploads', 'bookings')
 ORDER BY table_name;
 
 -- Verify indexes were created
@@ -364,5 +445,5 @@ SELECT
   indexname
 FROM pg_indexes 
 WHERE schemaname = 'public'
-  AND tablename IN ('users', 'garage_profiles', 'verification_codes', 'registration_sessions', 'file_uploads')
+  AND tablename IN ('users', 'garage_profiles', 'verification_codes', 'registration_sessions', 'file_uploads', 'bookings')
 ORDER BY tablename, indexname;

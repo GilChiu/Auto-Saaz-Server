@@ -120,23 +120,6 @@ class EmailService {
     }
 
     /**
-     * Send password reset email
-     */
-    async sendPasswordResetEmail(email: string, name: string, resetToken: string): Promise<boolean> {
-        const resetUrl = `${process.env.APP_URL || 'https://auto-saaz-garage-client.vercel.app'}/reset-password?token=${resetToken}`;
-        const subject = 'Reset Your AutoSaaz Password';
-        const html = this.generatePasswordResetTemplate(name, resetUrl);
-        const text = `Hi ${name},\n\nYou requested to reset your password. Click the link below to reset it:\n\n${resetUrl}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, please ignore this email.\n\nBest regards,\nAutoSaaz Team`;
-
-        return await this.sendMail({
-            to: email,
-            subject,
-            text,
-            html,
-        });
-    }
-
-    /**
      * OTP Email Template
      */
     private generateOTPEmailTemplate(code: string, name?: string): string {
@@ -297,6 +280,185 @@ class EmailService {
                             </p>
                             <p style="color: #999999; font-size: 12px; margin: 0;">
                                 Dubai, United Arab Emirates
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+        `;
+    }
+
+    /**
+     * Send Password Reset Email
+     */
+    async sendPasswordResetEmail(email: string, code: string): Promise<boolean> {
+        try {
+            const subject = 'Reset Your Password - AutoSaaz';
+            const html = this.generatePasswordResetCodeTemplate(code);
+
+            return await this.sendMail({
+                to: email,
+                subject,
+                html,
+            });
+        } catch (error) {
+            logger.error('EmailService.sendPasswordResetEmail error:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Send Password Changed Confirmation Email
+     */
+    async sendPasswordChangedEmail(email: string): Promise<boolean> {
+        try {
+            const subject = 'Your Password Has Been Changed - AutoSaaz';
+            const html = this.generatePasswordChangedTemplate();
+
+            return await this.sendMail({
+                to: email,
+                subject,
+                html,
+            });
+        } catch (error) {
+            logger.error('EmailService.sendPasswordChangedEmail error:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Password Reset Code Email Template
+     */
+    private generatePasswordResetCodeTemplate(code: string): string {
+        return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Your Password</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #FF6B35 0%, #FF8A5B 100%); padding: 40px 20px; text-align: center;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">🔒 Password Reset</h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px 30px;">
+                            <h2 style="color: #333333; margin: 0 0 20px 0; font-size: 22px;">Password Reset Request</h2>
+                            <p style="color: #666666; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                                We received a request to reset your password. Use the code below to reset your password:
+                            </p>
+                            
+                            <!-- OTP Code -->
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center" style="padding: 20px 0;">
+                                        <div style="background-color: #f8f9fa; border: 2px dashed #FF6B35; border-radius: 8px; padding: 20px; display: inline-block;">
+                                            <span style="font-size: 32px; font-weight: bold; color: #FF6B35; letter-spacing: 8px; font-family: 'Courier New', monospace;">
+                                                ${code}
+                                            </span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 30px 0 0 0; text-align: center;">
+                                ⏱️ This code will expire in <strong>10 minutes</strong>
+                            </p>
+                            
+                            <div style="margin-top: 30px; padding-top: 30px; border-top: 1px solid #eeeeee;">
+                                <p style="color: #999999; font-size: 13px; line-height: 1.6; margin: 0;">
+                                    ⚠️ If you didn't request this password reset, please ignore this email or contact our support team immediately.
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f8f8; padding: 30px; text-align: center; border-top: 1px solid #eeeeee;">
+                            <p style="color: #999999; font-size: 12px; margin: 0 0 10px 0;">
+                                © ${new Date().getFullYear()} AutoSaaz. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+        `;
+    }
+
+    /**
+     * Password Changed Confirmation Template
+     */
+    private generatePasswordChangedTemplate(): string {
+        return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Changed Successfully</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #10B981 0%, #34D399 100%); padding: 40px 20px; text-align: center;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">✅ Password Changed</h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px 30px;">
+                            <h2 style="color: #333333; margin: 0 0 20px 0; font-size: 22px;">Password Changed Successfully</h2>
+                            <p style="color: #666666; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                                Your password has been changed successfully. You can now use your new password to log in to your AutoSaaz account.
+                            </p>
+                            
+                            <div style="background-color: #f0fdf4; border-left: 4px solid #10B981; padding: 15px; margin: 20px 0;">
+                                <p style="color: #065f46; font-size: 14px; margin: 0;">
+                                    ✓ Your account is secure<br>
+                                    ✓ Password changed on ${new Date().toLocaleString()}
+                                </p>
+                            </div>
+                            
+                            <div style="margin-top: 30px; padding-top: 30px; border-top: 1px solid #eeeeee;">
+                                <p style="color: #ef4444; font-size: 14px; line-height: 1.6; margin: 0; font-weight: 600;">
+                                    ⚠️ Did you not make this change?
+                                </p>
+                                <p style="color: #999999; font-size: 13px; line-height: 1.6; margin: 10px 0 0 0;">
+                                    If you didn't change your password, please contact our support team immediately at support@autosaaz.com
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f8f8; padding: 30px; text-align: center; border-top: 1px solid #eeeeee;">
+                            <p style="color: #999999; font-size: 12px; margin: 0 0 10px 0;">
+                                © ${new Date().getFullYear()} AutoSaaz. All rights reserved.
                             </p>
                         </td>
                     </tr>

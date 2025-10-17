@@ -160,6 +160,27 @@ export class AuthController {
 
         return successResponse(res, user, 'User retrieved successfully');
     });
+
+    /**
+     * Refresh access token
+     * POST /api/auth/refresh
+     */
+    refreshToken = asyncHandler(async (req: Request, res: Response) => {
+        const { refreshToken } = req.body;
+
+        if (!refreshToken) {
+            return badRequestResponse(res, 'Refresh token is required');
+        }
+
+        const result = await authService.refreshAccessToken(refreshToken);
+
+        if (!result.success) {
+            return unauthorizedResponse(res, result.message);
+        }
+
+        logger.info(`Access token refreshed`);
+        return successResponse(res, result.data, result.message);
+    });
 }
 
 export default new AuthController();

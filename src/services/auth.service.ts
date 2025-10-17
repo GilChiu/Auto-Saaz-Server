@@ -262,11 +262,14 @@ export class AuthService {
 
             // Auto-generate a secure password
             const generatedPassword = generateSecurePassword(12);
+            logger.info(`Generated password for ${session.email}: ${generatedPassword.substring(0, 4)}****`);
             
             // Hash the generated password
             const hashedPassword = await hashPassword(generatedPassword);
+            logger.info(`Password hashed successfully for ${session.email}`);
 
             // NOW Create the user (after verification)
+            logger.info(`Attempting to create user for ${session.email}`);
             const user = await UserModel.createUser({
                 email: session.email,
                 password: hashedPassword,
@@ -274,6 +277,7 @@ export class AuthService {
             });
 
             if (!user) {
+                logger.error(`User creation failed for ${session.email} - createUser returned null`);
                 return {
                     success: false,
                     message: 'Failed to create user',
@@ -281,13 +285,17 @@ export class AuthService {
                 };
             }
 
+            logger.info(`User created successfully with ID: ${user.id}`);
+
             // Update user status to ACTIVE (skip PENDING_VERIFICATION since already verified)
+            logger.info(`Updating user status to ACTIVE for ${user.id}`);
             await UserModel.updateUser(user.id, {
                 status: RegistrationStatus.ACTIVE,
             });
 
             // Create garage profile with all collected data
-            await GarageModel.createProfile(user.id, {
+            logger.info(`Creating garage profile for user ${user.id}`);
+            const createdProfile = await GarageModel.createProfile(user.id, {
                 user_id: user.id,
                 full_name: session.full_name,
                 email: session.email,
@@ -309,14 +317,23 @@ export class AuthService {
                 phone_verified_at: new Date(),
             });
 
+            if (!createdProfile) {
+                logger.error(`Garage profile creation failed for user ${user.id}`);
+            } else {
+                logger.info(`Garage profile created successfully for user ${user.id}`);
+            }
+
             // Send the auto-generated password via email
+            logger.info(`Sending welcome email to ${session.email}`);
             await this.sendWelcomeEmail(session.email, session.full_name, generatedPassword);
             
             // Delete the registration session
+            logger.info(`Deleting registration session ${sessionId}`);
             await RegistrationSessionModel.deleteSession(sessionId);
 
             // Get created profile
             const profile = await GarageModel.getProfileByUserId(user.id);
+            logger.info(`Profile retrieved for user ${user.id}: ${profile ? 'Found' : 'Not Found'}`);
 
             // Generate tokens for automatic login
             const accessToken = createToken(user.id, user.email, user.role);
@@ -351,6 +368,8 @@ export class AuthService {
             };
         } catch (error: any) {
             logger.error('AuthService.verifyRegistration error:', error);
+            logger.error('Error stack:', error.stack);
+            logger.error('Error details:', JSON.stringify(error, null, 2));
             return {
                 success: false,
                 message: error.message || 'Verification failed',
@@ -509,6 +528,326 @@ export class AuthService {
             return {
                 success: false,
                 message: error.message || 'Failed to resend verification code',
+                status: 500,
+            };
+        }
+    }
+
+    /**
+     * Request password reset
+     */
+    async requestPasswordReset(email: string): Promise<AuthResponse> {
+        try {
+            // Get user by email
+            const user = await UserModel.getUserByEmail(email);
+            
+            // For security, don't reveal if email exists
+            if (!user) {
+                logger.warn(`Password reset requested for non-existent email: ${email}`);
+                return {
+                    success: true, // Return success to prevent email enumeration
+                    message: 'If an account exists, a reset code has been sent',
+                    status: 200,
+                };
+            }
+
+            // Check if there's a recent reset request (rate limiting)
+            const recentCode = await verificationService.getRecentCode(email);
+            if (recentCode && recentCode.createdAt) {
+                const timeSinceLastRequest = Date.now() - new Date(recentCode.createdAt).getTime();
+                const cooldownMs = 60 * 1000; // 1 minute cooldown
+                
+                if (timeSinceLastRequest < cooldownMs) {
+                    return {
+                        success: false,
+                        message: 'Please wait before requesting another reset code',
+                        status: 429,
+                    };
+                }
+            }
+
+            // Generate verification code for password reset
+            const { code } = await verificationService.createVerificationCode({
+                email,
+                userId: user.id,
+                method: VerificationMethod.EMAIL,
+            });
+
+            // Send reset code via email
+            await verificationService.sendPasswordResetEmail(email, code);
+
+            logger.info(`Password reset code sent to: ${email}`);
+
+            return {
+                success: true,
+                message: 'Reset code sent successfully',
+                status: 200,
+            };
+        } catch (error: any) {
+            logger.error('AuthService.requestPasswordReset error:', error);
+            return {
+                success: false,
+                message: 'Failed to process password reset request',
+                status: 500,
+            };
+        }
+    }
+
+    /**
+     * Verify reset code
+     */
+    async verifyResetCode(email: string, code: string): Promise<AuthResponse> {
+        try {
+            const verification = await verificationService.verifyCode({
+                code,
+                email,
+            });
+
+            if (!verification.success) {
+                return {
+                    success: false,
+                    message: verification.message,
+                    status: 401,
+                };
+            }
+
+            // Return a temporary token for password reset
+            // Don't mark code as used yet - will be used when password is actually reset
+            return {
+                success: true,
+                message: 'Code verified successfully',
+                data: {
+                    verified: true,
+                },
+                status: 200,
+            };
+        } catch (error: any) {
+            logger.error('AuthService.verifyResetCode error:', error);
+            return {
+                success: false,
+                message: 'Failed to verify reset code',
+                status: 500,
+            };
+        }
+    }
+
+    /**
+     * Reset password with verified code
+     */
+    async resetPassword(email: string, code: string, newPassword: string): Promise<AuthResponse> {
+        try {
+            // Get user
+            const user = await UserModel.getUserByEmail(email);
+            if (!user) {
+                return {
+                    success: false,
+                    message: 'Invalid reset request',
+                    status: 404,
+                };
+            }
+
+            // Verify code again
+            const verification = await verificationService.verifyCode({
+                code,
+                email,
+            });
+
+            if (!verification.success) {
+                return {
+                    success: false,
+                    message: 'Invalid or expired reset code',
+                    status: 401,
+                };
+            }
+
+            // Validate password strength
+            const passwordValidation = validatePasswordStrength(newPassword);
+            if (!passwordValidation.isValid) {
+                return {
+                    success: false,
+                    message: passwordValidation.message || 'Password does not meet security requirements',
+                    status: 400,
+                };
+            }
+
+            // Hash new password
+            const hashedPassword = await hashPassword(newPassword);
+
+            // Update password
+            const updated = await UserModel.updateUser(user.id, {
+                password: hashedPassword,
+            });
+
+            if (!updated) {
+                return {
+                    success: false,
+                    message: 'Failed to update password',
+                    status: 500,
+                };
+            }
+
+            // Reset failed login attempts
+            await UserModel.resetFailedLoginAttempts(user.id);
+
+            // Send confirmation email
+            const emailService = (await import('./email.service')).default;
+            await emailService.sendPasswordChangedEmail(email);
+
+            logger.info(`Password reset successful for: ${email}`);
+
+            return {
+                success: true,
+                message: 'Password reset successfully',
+                status: 200,
+            };
+        } catch (error: any) {
+            logger.error('AuthService.resetPassword error:', error);
+            return {
+                success: false,
+                message: 'Failed to reset password',
+                status: 500,
+            };
+        }
+    }
+
+    /**
+     * Change password (for authenticated users)
+     */
+    async changePassword(
+        userId: string,
+        currentPassword: string,
+        newPassword: string
+    ): Promise<AuthResponse> {
+        try {
+            // Get user
+            const user = await UserModel.getUserById(userId);
+            if (!user) {
+                return {
+                    success: false,
+                    message: 'User not found',
+                    status: 404,
+                };
+            }
+
+            // Verify current password
+            const isPasswordValid = await comparePassword(currentPassword, user.password);
+            if (!isPasswordValid) {
+                return {
+                    success: false,
+                    message: 'Current password is incorrect',
+                    status: 401,
+                };
+            }
+
+            // Check if new password is same as current
+            const isSamePassword = await comparePassword(newPassword, user.password);
+            if (isSamePassword) {
+                return {
+                    success: false,
+                    message: 'New password must be different from current password',
+                    status: 400,
+                };
+            }
+
+            // Validate new password strength
+            const passwordValidation = validatePasswordStrength(newPassword);
+            if (!passwordValidation.isValid) {
+                return {
+                    success: false,
+                    message: passwordValidation.message || 'Password does not meet security requirements',
+                    status: 400,
+                };
+            }
+
+            // Hash new password
+            const hashedPassword = await hashPassword(newPassword);
+
+            // Update password
+            const updated = await UserModel.updateUser(userId, {
+                password: hashedPassword,
+            });
+
+            if (!updated) {
+                return {
+                    success: false,
+                    message: 'Failed to update password',
+                    status: 500,
+                };
+            }
+
+            // Send confirmation email
+            const emailService = (await import('./email.service')).default;
+            await emailService.sendPasswordChangedEmail(user.email);
+
+            logger.info(`Password changed for user: ${userId}`);
+
+            return {
+                success: true,
+                message: 'Password changed successfully',
+                status: 200,
+            };
+        } catch (error: any) {
+            logger.error('AuthService.changePassword error:', error);
+            return {
+                success: false,
+                message: 'Failed to change password',
+                status: 500,
+            };
+        }
+    }
+
+    /**
+     * Refresh access token using refresh token
+     */
+    async refreshAccessToken(refreshToken: string): Promise<AuthResponse> {
+        try {
+            // Verify refresh token
+            const decoded = verifyToken(refreshToken);
+            if (!decoded || !decoded.userId) {
+                return {
+                    success: false,
+                    message: 'Invalid refresh token',
+                    status: 401,
+                };
+            }
+
+            // Get user
+            const user = await UserModel.getUserById(decoded.userId);
+            if (!user) {
+                return {
+                    success: false,
+                    message: 'User not found',
+                    status: 404,
+                };
+            }
+
+            // Check if user is active
+            if (user.status !== RegistrationStatus.ACTIVE) {
+                return {
+                    success: false,
+                    message: 'Account is not active',
+                    status: 403,
+                };
+            }
+
+            // Generate new access token
+            const newAccessToken = createToken(user.id, user.email, user.role);
+
+            logger.info(`Access token refreshed for user: ${user.id}`);
+
+            return {
+                success: true,
+                message: 'Token refreshed successfully',
+                data: {
+                    accessToken: newAccessToken,
+                },
+                status: 200,
+            };
+        } catch (error: any) {
+            logger.error('AuthService.refreshAccessToken error:', error);
+            return {
+                success: false,
+                message: 'Failed to refresh token',
                 status: 500,
             };
         }

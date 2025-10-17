@@ -71,6 +71,34 @@ export class VerificationService {
         phoneNumber?: string;
     }): Promise<{ success: boolean; message: string; userId?: string }> {
         try {
+            // MOCK MODE: Accept any 6-digit code in development
+            if (env.MOCK_OTP_VERIFICATION) {
+                // Validate it's exactly 6 digits
+                if (!/^\d{6}$/.test(data.code)) {
+                    return {
+                        success: false,
+                        message: 'Invalid verification code format. Must be 6 digits.',
+                    };
+                }
+                
+                logger.info(`🎭 MOCK MODE: Accepting code ${data.code} for ${data.email || data.phoneNumber}`);
+                console.log('');
+                console.log('='.repeat(80));
+                console.log('🎭 MOCK VERIFICATION MODE ACTIVE');
+                console.log('='.repeat(80));
+                console.log(`Code entered: ${data.code}`);
+                console.log(`Email/Phone: ${data.email || data.phoneNumber}`);
+                console.log('✅ Code accepted (any 6-digit code works in development)');
+                console.log('='.repeat(80));
+                console.log('');
+                
+                return {
+                    success: true,
+                    message: 'Verification successful (mock mode)',
+                };
+            }
+            
+            // PRODUCTION MODE: Real verification
             // Find the verification code
             const query = supabase
                 .from('verification_codes')
@@ -232,6 +260,54 @@ export class VerificationService {
         } catch (error) {
             logger.error('VerificationService.sendSMSVerification error:', error);
             return false;
+        }
+    }
+
+    /**
+     * Send password reset email
+     */
+    async sendPasswordResetEmail(email: string, code: string): Promise<boolean> {
+        try {
+            const emailService = (await import('./email.service')).default;
+            const sent = await emailService.sendPasswordResetEmail(email, code);
+            
+            if (sent) {
+                logger.info(`✅ Password reset email sent to ${email}`);
+            } else {
+                logger.warn(`⚠️  Failed to send password reset email to ${email}`);
+            }
+            
+            // Log for development
+            logger.info(`[PASSWORD RESET] Code for ${email}: ${code}`);
+            
+            return sent;
+        } catch (error) {
+            logger.error('VerificationService.sendPasswordResetEmail error:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Get recent verification code (for rate limiting)
+     */
+    async getRecentCode(email: string): Promise<VerificationCode | null> {
+        try {
+            const { data, error } = await supabase
+                .from('verification_codes')
+                .select('*')
+                .eq('email', email.toLowerCase())
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            if (error || !data) {
+                return null;
+            }
+
+            return data as VerificationCode;
+        } catch (error) {
+            logger.error('VerificationService.getRecentCode error:', error);
+            return null;
         }
     }
 

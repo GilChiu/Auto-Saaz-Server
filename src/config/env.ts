@@ -44,6 +44,7 @@ const env = {
   OTP_EXPIRY_MINUTES: parseInt(process.env.OTP_EXPIRY_MINUTES || '10', 10),
   OTP_LENGTH: parseInt(process.env.OTP_LENGTH || '6', 10),
   MAX_OTP_ATTEMPTS: parseInt(process.env.MAX_OTP_ATTEMPTS || '3', 10),
+  MOCK_OTP_VERIFICATION: process.env.MOCK_OTP_VERIFICATION === 'true' || process.env.NODE_ENV === 'development',
   
   // File Storage
   FILE_STORAGE_BUCKET: process.env.FILE_STORAGE_BUCKET || 'garage-documents',
