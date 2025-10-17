@@ -298,19 +298,32 @@ export class AuthController {
         const user = (req as any).user;
 
         if (!user) {
+            logger.warn('getUserPassword: No user in request');
             return unauthorizedResponse(res, 'Not authenticated');
         }
+
+        logger.info(`getUserPassword: Getting password for user ${user.id} (${user.email})`);
 
         try {
             const result = await authService.getUserPassword(user.id);
 
             if (!result.success) {
+                logger.warn(`getUserPassword failed: ${result.message}`);
+                if (result.status === 404) {
+                    return unauthorizedResponse(res, result.message);
+                }
                 return badRequestResponse(res, result.message);
             }
 
-            return successResponse(res, result.data, 'Password retrieved successfully');
-        } catch (error) {
+            logger.info(`getUserPassword: Success for user ${user.email}`);
+            return successResponse(res, result.data, result.message);
+        } catch (error: any) {
             logger.error('AuthController.getUserPassword error:', error);
+            logger.error('Error details:', {
+                message: error.message,
+                stack: error.stack,
+                userId: user.id
+            });
             return badRequestResponse(res, 'Failed to retrieve password');
         }
     });

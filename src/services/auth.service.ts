@@ -972,9 +972,12 @@ export class AuthService {
      */
     async getUserPassword(userId: string): Promise<AuthResponse> {
         try {
+            logger.info(`Getting password for user: ${userId}`);
+            
             // Get user info
             const user = await UserModel.getUserById(userId);
             if (!user) {
+                logger.warn(`User not found: ${userId}`);
                 return {
                     success: false,
                     message: 'User not found',
@@ -982,14 +985,18 @@ export class AuthService {
                 };
             }
 
-            // In development, we'll return the stored generated password from localStorage
-            // In production, this would typically not be allowed for security reasons
-            const generatedPassword = await this.getStoredGeneratedPassword(user.email);
+            logger.info(`User found: ${user.email}`);
+
+            // For development/demo purposes, return a consistent password
+            // SECURITY NOTE: In production, you would never expose passwords like this
+            const demoPassword = 'AutoSaaz2024!';
+            
+            logger.info(`Returning demo password for user: ${user.email}`);
 
             return {
                 success: true,
                 data: {
-                    password: generatedPassword || 'Password not available - check your email',
+                    password: demoPassword,
                     email: user.email,
                 },
                 message: 'Password retrieved successfully',
@@ -997,6 +1004,11 @@ export class AuthService {
             };
         } catch (error: any) {
             logger.error('AuthService.getUserPassword error:', error);
+            logger.error('Error details:', {
+                message: error.message,
+                stack: error.stack,
+                userId
+            });
             return {
                 success: false,
                 message: 'Failed to retrieve password',
@@ -1005,23 +1017,7 @@ export class AuthService {
         }
     }
 
-    /**
-     * Get stored generated password (development helper)
-     * @private
-     */
-    private async getStoredGeneratedPassword(email: string): Promise<string | null> {
-        try {
-            // For development, we'll check if there's a stored password
-            // In a real app, you might have a separate table for this or use a secure vault
-            
-            // For now, return a demo password that matches what was generated
-            // This is just for development - in production you'd have proper password management
-            return 'AutoSaaz2024!'; // Demo password for account settings display
-        } catch (error) {
-            logger.error('Error getting stored password:', error);
-            return null;
-        }
-    }
+
 
     /**
      * Send welcome email with auto-generated password
