@@ -234,6 +234,88 @@ export class AuthController {
     });
 
     /**
+     * Get user profile with additional details
+     * GET /api/auth/profile
+     */
+    getUserProfile = asyncHandler(async (req: Request, res: Response) => {
+        const user = (req as any).user;
+
+        if (!user) {
+            return unauthorizedResponse(res, 'Not authenticated');
+        }
+
+        try {
+            const result = await authService.getUserProfile(user.id);
+
+            if (!result.success) {
+                return badRequestResponse(res, result.message);
+            }
+
+            return successResponse(res, result.data, 'Profile retrieved successfully');
+        } catch (error) {
+            logger.error('AuthController.getUserProfile error:', error);
+            return badRequestResponse(res, 'Failed to retrieve profile');
+        }
+    });
+
+    /**
+     * Update user profile
+     * PUT /api/auth/profile
+     */
+    updateUserProfile = asyncHandler(async (req: Request, res: Response) => {
+        const user = (req as any).user;
+        const { email, phone, password, language, timezone } = req.body;
+
+        if (!user) {
+            return unauthorizedResponse(res, 'Not authenticated');
+        }
+
+        try {
+            const result = await authService.updateUserProfile(user.id, {
+                email,
+                phone,
+                password,
+                language,
+                timezone
+            });
+
+            if (!result.success) {
+                return badRequestResponse(res, result.message);
+            }
+
+            return successResponse(res, result.data, 'Profile updated successfully');
+        } catch (error) {
+            logger.error('AuthController.updateUserProfile error:', error);
+            return badRequestResponse(res, 'Failed to update profile');
+        }
+    });
+
+    /**
+     * Get user password (development only)
+     * GET /api/auth/password
+     */
+    getUserPassword = asyncHandler(async (req: Request, res: Response) => {
+        const user = (req as any).user;
+
+        if (!user) {
+            return unauthorizedResponse(res, 'Not authenticated');
+        }
+
+        try {
+            const result = await authService.getUserPassword(user.id);
+
+            if (!result.success) {
+                return badRequestResponse(res, result.message);
+            }
+
+            return successResponse(res, result.data, 'Password retrieved successfully');
+        } catch (error) {
+            logger.error('AuthController.getUserPassword error:', error);
+            return badRequestResponse(res, 'Failed to retrieve password');
+        }
+    });
+
+    /**
      * Refresh access token
      * POST /api/auth/refresh
      */

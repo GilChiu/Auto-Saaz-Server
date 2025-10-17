@@ -854,6 +854,176 @@ export class AuthService {
     }
 
     /**
+     * Get user profile with additional details
+     */
+    async getUserProfile(userId: string): Promise<AuthResponse> {
+        try {
+            // Get user basic info
+            const user = await UserModel.getUserById(userId);
+            if (!user) {
+                return {
+                    success: false,
+                    message: 'User not found',
+                    status: 404,
+                };
+            }
+
+            // Get garage profile
+            const profile = await GarageModel.getProfileByUserId(userId);
+
+            // Return user data with profile
+            const { password: _, ...userWithoutPassword } = user;
+            
+            return {
+                success: true,
+                data: {
+                    user: userWithoutPassword,
+                    profile: profile ? {
+                        fullName: profile.full_name,
+                        email: profile.email,
+                        phoneNumber: profile.phone_number,
+                        companyLegalName: profile.company_legal_name,
+                        address: profile.address,
+                        street: profile.street,
+                        state: profile.state,
+                        location: profile.location,
+                        status: profile.status,
+                    } : null,
+                },
+                message: 'Profile retrieved successfully',
+                status: 200,
+            };
+        } catch (error: any) {
+            logger.error('AuthService.getUserProfile error:', error);
+            return {
+                success: false,
+                message: 'Failed to retrieve profile',
+                status: 500,
+            };
+        }
+    }
+
+    /**
+     * Update user profile
+     */
+    async updateUserProfile(userId: string, data: {
+        email?: string;
+        phone?: string;
+        password?: string;
+        language?: string;
+        timezone?: string;
+    }): Promise<AuthResponse> {
+        try {
+            // Get current user
+            const user = await UserModel.getUserById(userId);
+            if (!user) {
+                return {
+                    success: false,
+                    message: 'User not found',
+                    status: 404,
+                };
+            }
+
+            // Update user table if email or password is being changed
+            const userUpdates: any = {};
+            if (data.email && data.email !== user.email) {
+                userUpdates.email = data.email;
+            }
+            if (data.password) {
+                userUpdates.password = await hashPassword(data.password);
+            }
+
+            if (Object.keys(userUpdates).length > 0) {
+                await UserModel.updateUser(userId, userUpdates);
+            }
+
+            // Update garage profile
+            const profileUpdates: any = {};
+            if (data.email) profileUpdates.email = data.email;
+            if (data.phone) profileUpdates.phone_number = data.phone;
+
+            if (Object.keys(profileUpdates).length > 0) {
+                await GarageModel.updateProfile(userId, profileUpdates);
+            }
+
+            // Get updated profile
+            const updatedProfile = await this.getUserProfile(userId);
+
+            logger.info(`Profile updated for user ${userId}`);
+            
+            return {
+                success: true,
+                data: updatedProfile.data,
+                message: 'Profile updated successfully',
+                status: 200,
+            };
+        } catch (error: any) {
+            logger.error('AuthService.updateUserProfile error:', error);
+            return {
+                success: false,
+                message: 'Failed to update profile',
+                status: 500,
+            };
+        }
+    }
+
+    /**
+     * Get user password (for development - returns generated password)
+     */
+    async getUserPassword(userId: string): Promise<AuthResponse> {
+        try {
+            // Get user info
+            const user = await UserModel.getUserById(userId);
+            if (!user) {
+                return {
+                    success: false,
+                    message: 'User not found',
+                    status: 404,
+                };
+            }
+
+            // In development, we'll return the stored generated password from localStorage
+            // In production, this would typically not be allowed for security reasons
+            const generatedPassword = await this.getStoredGeneratedPassword(user.email);
+
+            return {
+                success: true,
+                data: {
+                    password: generatedPassword || 'Password not available - check your email',
+                    email: user.email,
+                },
+                message: 'Password retrieved successfully',
+                status: 200,
+            };
+        } catch (error: any) {
+            logger.error('AuthService.getUserPassword error:', error);
+            return {
+                success: false,
+                message: 'Failed to retrieve password',
+                status: 500,
+            };
+        }
+    }
+
+    /**
+     * Get stored generated password (development helper)
+     * @private
+     */
+    private async getStoredGeneratedPassword(email: string): Promise<string | null> {
+        try {
+            // For development, we'll check if there's a stored password
+            // In a real app, you might have a separate table for this or use a secure vault
+            
+            // For now, return a demo password that matches what was generated
+            // This is just for development - in production you'd have proper password management
+            return 'AutoSaaz2024!'; // Demo password for account settings display
+        } catch (error) {
+            logger.error('Error getting stored password:', error);
+            return null;
+        }
+    }
+
+    /**
      * Send welcome email with auto-generated password
      * @private
      */

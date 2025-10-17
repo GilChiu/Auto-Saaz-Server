@@ -98,6 +98,15 @@ router.post('/refresh', authController.refreshToken);
 // Get current authenticated user
 router.get('/me', authGuard, authController.getCurrentUser);
 
+// Get user profile with additional details
+router.get('/profile', authGuard, authController.getUserProfile);
+
+// Update user profile
+router.put('/profile', authGuard, authController.updateUserProfile);
+
+// Get user password (development only)
+router.get('/password', authGuard, authController.getUserPassword);
+
 /**
  * Password Management Routes
  */
