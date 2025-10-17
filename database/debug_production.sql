@@ -15,7 +15,7 @@ SELECT
     COUNT(*) FILTER (WHERE garage_id = 'ba50abf9-5210-4177-8605-b01c73b9f9f3') as your_bookings
 FROM bookings;
 
--- Check for the specific booking we're looking for
+-- Check for the specific booking we're looking for (by booking_number only)
 SELECT 
     id,
     booking_number,
@@ -24,8 +24,7 @@ SELECT
     service_type,
     status
 FROM bookings 
-WHERE booking_number = 'BK17053188000001' 
-   OR id = 'BK17053188000001';
+WHERE booking_number = 'BK17053188000001';
 
 -- Check all bookings for your garage
 SELECT 

@@ -87,22 +87,53 @@ export class BookingModel {
             // Clean the booking ID (remove # prefix if present)
             const cleanId = bookingId.replace('#', '');
             
-            // First try to find by UUID (id field)
-            let { data, error } = await supabase
-                .from('bookings')
-                .select('*')
-                .eq('id', cleanId)
-                .eq('garage_id', garageId)
-                .single();
-
-            // If not found by UUID, try by booking_number
-            if (error && error.code === 'PGRST116') {
+            // Check if the ID looks like a UUID (36 chars with dashes) or booking number
+            const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cleanId);
+            
+            let data = null;
+            let error = null;
+            
+            if (isUUID) {
+                // Try UUID lookup first
+                ({ data, error } = await supabase
+                    .from('bookings')
+                    .select('*')
+                    .eq('id', cleanId)
+                    .eq('garage_id', garageId)
+                    .single());
+                    
+                // If not found by UUID, try booking_number as fallback
+                if (error && error.code === 'PGRST116') {
+                    ({ data, error } = await supabase
+                        .from('bookings')
+                        .select('*')
+                        .eq('booking_number', cleanId)
+                        .eq('garage_id', garageId)
+                        .single());
+                }
+            } else {
+                // Try booking_number first (most likely case)
                 ({ data, error } = await supabase
                     .from('bookings')
                     .select('*')
                     .eq('booking_number', cleanId)
                     .eq('garage_id', garageId)
                     .single());
+                    
+                // If not found by booking_number, try UUID as fallback (rare case)
+                if (error && error.code === 'PGRST116') {
+                    try {
+                        ({ data, error } = await supabase
+                            .from('bookings')
+                            .select('*')
+                            .eq('id', cleanId)
+                            .eq('garage_id', garageId)
+                            .single());
+                    } catch (uuidError) {
+                        // Ignore UUID type errors for non-UUID strings
+                        logger.debug('UUID lookup failed for non-UUID string, expected behavior');
+                    }
+                }
             }
 
             if (error) {
