@@ -15,7 +15,7 @@ export class BookingController {
      * GET /api/dashboard/stats
      */
     getDashboardStats = asyncHandler(async (req: Request, res: Response) => {
-        const userId = (req as any).user.userId;
+        const userId = (req as any).user.id;
 
         // Get user's garage profile
         const profile = await GarageModel.getProfileByUserId(userId);
@@ -37,7 +37,7 @@ export class BookingController {
      * GET /api/bookings
      */
     getBookings = asyncHandler(async (req: Request, res: Response) => {
-        const userId = (req as any).user.userId;
+        const userId = (req as any).user.id;
         const {
             status,
             service_type,
@@ -74,7 +74,7 @@ export class BookingController {
      * GET /api/bookings/:id
      */
     getBookingById = asyncHandler(async (req: Request, res: Response) => {
-        const userId = (req as any).user.userId;
+        const userId = (req as any).user.id;
         const { id } = req.params;
 
         if (!id) {
@@ -95,7 +95,7 @@ export class BookingController {
      * POST /api/bookings
      */
     createBooking = asyncHandler(async (req: Request, res: Response) => {
-        const userId = (req as any).user.userId;
+        const userId = (req as any).user.id;
         const {
             customer_name,
             customer_phone,
@@ -149,7 +149,7 @@ export class BookingController {
      * PATCH /api/bookings/:id
      */
     updateBooking = asyncHandler(async (req: Request, res: Response) => {
-        const userId = (req as any).user.userId;
+        const userId = (req as any).user.id;
         const { id } = req.params;
         const updates = req.body;
 
@@ -178,7 +178,7 @@ export class BookingController {
      * DELETE /api/bookings/:id
      */
     deleteBooking = asyncHandler(async (req: Request, res: Response) => {
-        const userId = (req as any).user.userId;
+        const userId = (req as any).user.id;
         const { id } = req.params;
 
         if (!id) {
@@ -206,7 +206,7 @@ export class BookingController {
      * GET /api/dashboard/booking-stats
      */
     getBookingStats = asyncHandler(async (req: Request, res: Response) => {
-        const userId = (req as any).user.userId;
+        const userId = (req as any).user.id;
 
         const stats = await BookingModel.getBookingStats(userId);
         

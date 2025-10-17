@@ -10,6 +10,28 @@ const router = Router();
 router.use(authGuard);
 
 /**
+ * Dashboard Routes
+ */
+
+/**
+ * @route   GET /api/dashboard/stats
+ * @desc    Get dashboard statistics (bookings, revenue, etc.)
+ * @access  Private (Garage Owners)
+ */
+router.get('/stats', bookingController.getDashboardStats);
+
+/**
+ * @route   GET /api/dashboard/booking-stats
+ * @desc    Get booking statistics (total, completed, pending, etc.)
+ * @access  Private (Garage Owners)
+ */
+router.get('/booking-stats', bookingController.getBookingStats);
+
+/**
+ * Booking Routes
+ */
+
+/**
  * @route   GET /api/bookings
  * @desc    Get all bookings with filters and pagination
  * @access  Private (Garage Owners)
