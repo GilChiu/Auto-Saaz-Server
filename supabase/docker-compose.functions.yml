@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  deploy:
+    image: ghcr.io/supabase/cli:latest
+    working_dir: /workspace
+    environment:
+      - SUPABASE_ACCESS_TOKEN
+      - SUPABASE_PROJECT_REF
+    volumes:
+      - ./:/workspace
+    command: >-
+      sh -lc "chmod +x ./scripts/deploy-functions.sh && ./scripts/deploy-functions.sh"

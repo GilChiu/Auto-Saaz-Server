@@ -1,0 +1,4 @@
+project_id = "lblcjyeiwgyanadssqac" # Inferred from db host. Please confirm.
+
+# For local development, you can set additional options under sections below if needed.
+# See: https://supabase.com/docs/reference/cli/config
