@@ -67,14 +67,7 @@ serve(async (req) => {
         deleted_at,
         deleted_by,
         created_at,
-        updated_at,
-        users!inner(
-          id,
-          email,
-          role,
-          status,
-          created_at
-        )
+        updated_at
       `)
       .eq('id', garageId)
       .single()
@@ -88,6 +81,13 @@ serve(async (req) => {
         origin
       )
     }
+
+    // Fetch user details separately
+    const { data: user } = await supabase
+      .from('users')
+      .select('id, email, role, status, created_at')
+      .eq('id', garage.user_id)
+      .single()
 
     // Fetch booking statistics
     const { count: totalBookings } = await supabase
@@ -168,7 +168,7 @@ serve(async (req) => {
       deletedBy: deletedByAdmin,
       createdAt: garage.created_at,
       updatedAt: garage.updated_at,
-      user: garage.users,
+      user: user,
       stats: {
         totalBookings: totalBookings || 0,
         completedBookings: completedBookings || 0,

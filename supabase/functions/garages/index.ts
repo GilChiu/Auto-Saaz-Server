@@ -27,7 +27,6 @@ serve(async (req) => {
 
       const offset = (page - 1) * limit
 
-      // Build query
       let query = supabase
         .from('garage_profiles')
         .select(`
@@ -43,17 +42,12 @@ serve(async (req) => {
           rating,
           suspended_at,
           deleted_at,
-          created_at,
-          users!inner(
-            id,
-            email,
-            role,
-            status
-          )
+          created_at
         `, { count: 'exact' })
 
-      // Filter: Only garage_owner role
-      query = query.eq('users.role', 'garage_owner')
+      // Filter: Only garage_owner role - we need to join users table separately
+      // First get all garage profiles
+      // Then filter by checking the role in users table via user_id
 
       // Filter: Exclude deleted by default
       if (!includeDeleted) {
@@ -86,8 +80,24 @@ serve(async (req) => {
         )
       }
 
+      // Filter by role manually - get user roles
+      const garageUserIds = garages?.map((g: any) => g.user_id).filter(Boolean) || []
+      
+      let filteredGarages = garages || []
+      
+      if (garageUserIds.length > 0) {
+        const { data: users } = await supabase
+          .from('users')
+          .select('id, role')
+          .in('id', garageUserIds)
+          .eq('role', 'garage_owner')
+        
+        const garageOwnerIds = new Set(users?.map((u: any) => u.id) || [])
+        filteredGarages = garages?.filter((g: any) => garageOwnerIds.has(g.user_id)) || []
+      }
+
       // Get booking counts for each garage
-      const garageIds = garages?.map((g: any) => g.user_id) || []
+      const garageIds = filteredGarages?.map((g: any) => g.user_id) || []
       const { data: bookingCounts } = await supabase
         .from('bookings')
         .select('garage_id')
@@ -100,7 +110,7 @@ serve(async (req) => {
       })
 
       // Transform data to match frontend expectations
-      const transformedGarages = garages?.map((garage: any) => ({
+      const transformedGarages = filteredGarages?.map((garage: any) => ({
         id: garage.id,
         userId: garage.user_id,
         name: garage.garage_name || garage.full_name || 'Unnamed Garage',
