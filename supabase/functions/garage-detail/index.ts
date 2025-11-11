@@ -1,12 +1,14 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
-import { corsHeaders } from '../_shared/cors.ts'
+import { handleOptions, withCors } from '../_shared/cors.ts'
 
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return handleOptions(req)
   }
+
+  const origin = req.headers.get('origin') || '*'
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -14,9 +16,12 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     if (req.method !== 'GET') {
-      return new Response(
-        JSON.stringify({ success: false, message: 'Method not allowed' }),
-        { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      return withCors(
+        new Response(
+          JSON.stringify({ success: false, message: 'Method not allowed' }),
+          { status: 405, headers: { 'Content-Type': 'application/json' } }
+        ),
+        origin
       )
     }
 
@@ -26,9 +31,12 @@ serve(async (req) => {
     const garageId = pathParts[pathParts.length - 1]
 
     if (!garageId || garageId === 'garage-detail') {
-      return new Response(
-        JSON.stringify({ success: false, message: 'Garage ID is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      return withCors(
+        new Response(
+          JSON.stringify({ success: false, message: 'Garage ID is required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        ),
+        origin
       )
     }
 
@@ -72,9 +80,12 @@ serve(async (req) => {
       .single()
 
     if (garageError || !garage) {
-      return new Response(
-        JSON.stringify({ success: false, message: 'Garage not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      return withCors(
+        new Response(
+          JSON.stringify({ success: false, message: 'Garage not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        ),
+        origin
       )
     }
 
@@ -103,7 +114,7 @@ serve(async (req) => {
       .eq('garage_id', garage.user_id)
       .eq('status', 'completed')
 
-    const totalRevenue = payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0
+    const totalRevenue = payments?.reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0
 
     // Get suspended/deleted by admin details if applicable
     let suspendedByAdmin = null
@@ -166,19 +177,26 @@ serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        data: transformedGarage
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    return withCors(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: transformedGarage
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      ),
+      origin
     )
 
   } catch (error) {
     console.error('Error in garage-detail function:', error)
-    return new Response(
-      JSON.stringify({ success: false, message: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    const message = error instanceof Error ? error.message : 'Internal server error'
+    return withCors(
+      new Response(
+        JSON.stringify({ success: false, message }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      ),
+      origin
     )
   }
 })

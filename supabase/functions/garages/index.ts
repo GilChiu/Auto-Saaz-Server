@@ -1,12 +1,14 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
-import { corsHeaders } from '../_shared/cors.ts'
+import { handleOptions, withCors } from '../_shared/cors.ts'
 
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return handleOptions(req)
   }
+
+  const origin = req.headers.get('origin') || '*'
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -75,14 +77,17 @@ serve(async (req) => {
 
       if (error) {
         console.error('Error fetching garages:', error)
-        return new Response(
-          JSON.stringify({ success: false, message: error.message }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        return withCors(
+          new Response(
+            JSON.stringify({ success: false, message: error.message }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          ),
+          origin
         )
       }
 
       // Get booking counts for each garage
-      const garageIds = garages?.map(g => g.user_id) || []
+      const garageIds = garages?.map((g: any) => g.user_id) || []
       const { data: bookingCounts } = await supabase
         .from('bookings')
         .select('garage_id')
@@ -90,12 +95,12 @@ serve(async (req) => {
 
       // Count bookings per garage
       const bookingMap = new Map<string, number>()
-      bookingCounts?.forEach(b => {
+      bookingCounts?.forEach((b: any) => {
         bookingMap.set(b.garage_id, (bookingMap.get(b.garage_id) || 0) + 1)
       })
 
       // Transform data to match frontend expectations
-      const transformedGarages = garages?.map(garage => ({
+      const transformedGarages = garages?.map((garage: any) => ({
         id: garage.id,
         userId: garage.user_id,
         name: garage.garage_name || garage.full_name || 'Unnamed Garage',
@@ -117,18 +122,21 @@ serve(async (req) => {
 
       const totalPages = Math.ceil((count || 0) / limit)
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          data: transformedGarages,
-          meta: {
-            total: count || 0,
-            page,
-            limit,
-            totalPages
-          }
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      return withCors(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: transformedGarages,
+            meta: {
+              total: count || 0,
+              page,
+              limit,
+              totalPages
+            }
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        ),
+        origin
       )
     }
 
@@ -137,9 +145,12 @@ serve(async (req) => {
       const { garageId, action, reason, adminId } = await req.json()
 
       if (!garageId || !action) {
-        return new Response(
-          JSON.stringify({ success: false, message: 'Missing garageId or action' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        return withCors(
+          new Response(
+            JSON.stringify({ success: false, message: 'Missing garageId or action' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          ),
+          origin
         )
       }
 
@@ -160,9 +171,12 @@ serve(async (req) => {
           status: 'active'
         }
       } else {
-        return new Response(
-          JSON.stringify({ success: false, message: 'Invalid action. Use "suspend" or "unsuspend"' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        return withCors(
+          new Response(
+            JSON.stringify({ success: false, message: 'Invalid action. Use "suspend" or "unsuspend"' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          ),
+          origin
         )
       }
 
@@ -175,15 +189,21 @@ serve(async (req) => {
 
       if (error) {
         console.error('Error updating garage:', error)
-        return new Response(
-          JSON.stringify({ success: false, message: error.message }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        return withCors(
+          new Response(
+            JSON.stringify({ success: false, message: error.message }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          ),
+          origin
         )
       }
 
-      return new Response(
-        JSON.stringify({ success: true, data, message: `Garage ${action}ed successfully` }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      return withCors(
+        new Response(
+          JSON.stringify({ success: true, data, message: `Garage ${action}ed successfully` }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        ),
+        origin
       )
     }
 
@@ -193,9 +213,12 @@ serve(async (req) => {
       const adminId = url.searchParams.get('adminId')
 
       if (!garageId) {
-        return new Response(
-          JSON.stringify({ success: false, message: 'Missing garageId' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        return withCors(
+          new Response(
+            JSON.stringify({ success: false, message: 'Missing garageId' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          ),
+          origin
         )
       }
 
@@ -212,28 +235,41 @@ serve(async (req) => {
 
       if (error) {
         console.error('Error deleting garage:', error)
-        return new Response(
-          JSON.stringify({ success: false, message: error.message }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        return withCors(
+          new Response(
+            JSON.stringify({ success: false, message: error.message }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          ),
+          origin
         )
       }
 
-      return new Response(
-        JSON.stringify({ success: true, data, message: 'Garage deleted successfully' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      return withCors(
+        new Response(
+          JSON.stringify({ success: true, data, message: 'Garage deleted successfully' }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        ),
+        origin
       )
     }
 
-    return new Response(
-      JSON.stringify({ success: false, message: 'Method not allowed' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    return withCors(
+      new Response(
+        JSON.stringify({ success: false, message: 'Method not allowed' }),
+        { status: 405, headers: { 'Content-Type': 'application/json' } }
+      ),
+      origin
     )
 
   } catch (error) {
     console.error('Error in garages function:', error)
-    return new Response(
-      JSON.stringify({ success: false, message: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    const message = error instanceof Error ? error.message : 'Internal server error'
+    return withCors(
+      new Response(
+        JSON.stringify({ success: false, message }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      ),
+      origin
     )
   }
 })
