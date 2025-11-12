@@ -24,6 +24,10 @@ CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
 -- Create index for recovery_status
 CREATE INDEX IF NOT EXISTS idx_bookings_recovery_status ON bookings(recovery_status);
 
+-- Update existing statuses to match new constraint FIRST (before dropping constraint)
+UPDATE bookings SET status = 'pending' WHERE status IN ('confirmed', 'no_show');
+UPDATE bookings SET status = 'completed' WHERE status = 'cancelled';
+
 -- Drop old status constraint and add new one with only 3 statuses
 ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_status_check;
 
@@ -31,10 +35,6 @@ ALTER TABLE bookings
 ADD CONSTRAINT bookings_status_check CHECK (
   status IN ('pending', 'in_progress', 'completed')
 );
-
--- Update existing statuses to match new constraint
-UPDATE bookings SET status = 'pending' WHERE status IN ('confirmed', 'no_show');
-UPDATE bookings SET status = 'completed' WHERE status = 'cancelled';
 
 -- Comments for documentation
 COMMENT ON COLUMN bookings.user_id IS 'Reference to customer user account';
