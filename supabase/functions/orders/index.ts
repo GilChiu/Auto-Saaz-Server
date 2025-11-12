@@ -161,9 +161,9 @@ Deno.serve(async (req) => {
       return withCors(response, origin);
     }
 
-    // PATCH - Assign/change garage for an order
+    // PATCH - Assign/change garage for an order OR update status
     if (req.method === 'PATCH' && orderId) {
-      const { garageId, adminId } = await req.json();
+      const { garageId, adminId, status } = await req.json();
 
       if (!garageId) {
         const response = new Response(
@@ -176,14 +176,23 @@ Deno.serve(async (req) => {
         return withCors(response, origin);
       }
 
+      // Build update object
+      const updateData: any = {
+        garage_id: garageId,
+        updated_at: new Date().toISOString(),
+      };
+
+      // If status is provided, update it; otherwise set recovery_status to 'assigned'
+      if (status) {
+        updateData.status = status;
+      } else {
+        updateData.recovery_status = 'assigned';
+      }
+
       // Update the booking
       const { data, error } = await supabaseClient
         .from('bookings')
-        .update({
-          garage_id: garageId,
-          updated_at: new Date().toISOString(),
-          recovery_status: 'assigned'
-        })
+        .update(updateData)
         .eq('id', orderId)
         .select()
         .single();
