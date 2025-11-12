@@ -28,9 +28,10 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Use service role key for admin operations (bypasses RLS)
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
         global: {
           headers: { Authorization: req.headers.get('Authorization')! },
@@ -75,16 +76,22 @@ Deno.serve(async (req) => {
 
       const { data: bookings, error, count } = await query;
 
+      console.log('Query result:', { bookingsCount: bookings?.length, totalCount: count, status, search });
+      
       if (error) throw error;
 
       // Get unique garage IDs
       const garageIds = [...new Set(bookings?.map(b => b.garage_id).filter(Boolean))];
 
-      // Fetch garage profiles separately
-      const { data: garageProfiles } = await supabaseClient
-        .from('garage_profiles')
-        .select('user_id, full_name, garage_name, phone_number, location, rating')
-        .in('user_id', garageIds);
+      // Fetch garage profiles separately (only if there are garage IDs)
+      let garageProfiles = [];
+      if (garageIds.length > 0) {
+        const { data } = await supabaseClient
+          .from('garage_profiles')
+          .select('user_id, full_name, garage_name, phone_number, location, rating')
+          .in('user_id', garageIds);
+        garageProfiles = data || [];
+      }
 
       // Create a map for quick lookup
       const garageMap = new Map(garageProfiles?.map(g => [g.user_id, g]) || []);
