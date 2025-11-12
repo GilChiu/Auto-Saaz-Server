@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
 };
 
 function handleOptions(req: Request) {
@@ -13,6 +14,7 @@ function withCors(response: Response, origin: string) {
   const headers = new Headers(response.headers);
   headers.set('Access-Control-Allow-Origin', origin || '*');
   headers.set('Access-Control-Allow-Headers', 'authorization, x-client-info, apikey, content-type');
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, PATCH, PUT, DELETE, OPTIONS');
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -31,12 +33,7 @@ Deno.serve(async (req) => {
     // Use service role key for admin operations (bypasses RLS)
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     const url = new URL(req.url);
@@ -76,9 +73,12 @@ Deno.serve(async (req) => {
 
       const { data: bookings, error, count } = await query;
 
-      console.log('Query result:', { bookingsCount: bookings?.length, totalCount: count, status, search });
+      console.log('Query result:', { bookingsCount: bookings?.length, totalCount: count, status, search, error: error?.message });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Database query error:', error);
+        throw error;
+      }
 
       // Get unique garage IDs
       const garageIds = [...new Set(bookings?.map(b => b.garage_id).filter(Boolean))];
