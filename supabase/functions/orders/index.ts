@@ -39,7 +39,9 @@ Deno.serve(async (req) => {
     );
 
     const url = new URL(req.url);
-    const orderId = url.pathname.split('/').pop();
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    // pathParts will be like ['orders'] or ['orders', 'some-id']
+    const orderId = pathParts.length > 1 ? pathParts[1] : null;
 
     // GET - List orders with pagination and search
     if (req.method === 'GET' && !orderId) {
